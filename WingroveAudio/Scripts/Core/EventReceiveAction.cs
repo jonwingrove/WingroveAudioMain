@@ -98,47 +98,61 @@ namespace WingroveAudio
             foreach (BaseWingroveAudioSource was in m_audioSources)
             {
                 ActiveCue useCue = was.GetCueForGameObject(targetObject);
-
-                switch (m_action)
+                bool shouldDoAction = true;
+                // fix for stop (gameobject) + stop (gameobject) => stop (anything)
+                // when gameobject matches can't be found...
+                if(targetObject != null && useCue == null)
                 {
-                    case Actions.Pause:
-                        useCue = was.Pause(useCue);
-                        break;
-                    case Actions.UnPause:
-                        useCue = was.Unpause(useCue);
-                        break;
-                    case Actions.Play:
-                        useCue = was.Play(useCue, m_fadeLength, targetObject);
-                        break;
-                    case Actions.PlayRandom:
-                        if (index == randomIndex)
-                        {                            
-                            useCue = was.Play(useCue, m_fadeLength, targetObject);
-                        }
-                        break;
-                    case Actions.PlaySequence:
-                        if (index == m_sequenceIndex)
-                        {
-                            useCue = was.Play(useCue, m_fadeLength, targetObject);
-                            shouldIncreaseSequence = true;
-                        }
-                        break;
-                    case Actions.Stop:
-                        useCue = was.Stop(useCue, m_fadeLength);
-                        break;
-                    case Actions.PlayRandomNoRepeats:
-                        if (index == randomIndex)
-                        {                            
-                            useCue = was.Play(useCue, m_fadeLength, targetObject);
-                        }
-                        break;
+                    if(m_action == Actions.Pause || m_action == Actions.Stop
+                        || m_action == Actions.UnPause)
+                    {
+                        shouldDoAction = false;
+                    }
                 }
 
-                if (cuesOut != null)
+                if (shouldDoAction)
                 {
-                    cuesOut.Add(useCue);
+                    switch (m_action)
+                    {
+                        case Actions.Pause:
+                            useCue = was.Pause(useCue);
+                            break;
+                        case Actions.UnPause:
+                            useCue = was.Unpause(useCue);
+                            break;
+                        case Actions.Play:
+                            useCue = was.Play(useCue, m_fadeLength, targetObject);
+                            break;
+                        case Actions.PlayRandom:
+                            if (index == randomIndex)
+                            {
+                                useCue = was.Play(useCue, m_fadeLength, targetObject);
+                            }
+                            break;
+                        case Actions.PlaySequence:
+                            if (index == m_sequenceIndex)
+                            {
+                                useCue = was.Play(useCue, m_fadeLength, targetObject);
+                                shouldIncreaseSequence = true;
+                            }
+                            break;
+                        case Actions.Stop:
+                            useCue = was.Stop(useCue, m_fadeLength);
+                            break;
+                        case Actions.PlayRandomNoRepeats:
+                            if (index == randomIndex)
+                            {
+                                useCue = was.Play(useCue, m_fadeLength, targetObject);
+                            }
+                            break;
+                    }
+
+                    if (cuesOut != null)
+                    {
+                        cuesOut.Add(useCue);
+                    }
+                    ++index;
                 }
-                ++index;
             }
 
             if (shouldIncreaseSequence)

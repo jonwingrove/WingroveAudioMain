@@ -42,6 +42,7 @@ namespace WingroveAudio
         private bool m_rmsRequested;
         private int m_framesAtZero = 0;
         private Vector3 m_audioPositioning;
+        private float m_audioPositioningDistance;
 
         public void Initialise(GameObject originator, GameObject target)
         {
@@ -107,9 +108,9 @@ namespace WingroveAudio
                 if (m_currentAudioSource != null)
                 {
                     m_currentAudioSource.m_audioSource.clip = m_audioClipSource.GetAudioClip();
+                    m_currentAudioSource.m_audioSource.loop = m_audioClipSource.GetLooping();
                     if (!m_isPaused)
                     {
-                        m_currentAudioSource.m_audioSource.loop = m_audioClipSource.GetLooping();
                         queueEnableAndPlay = true;
                     }
                 }
@@ -242,8 +243,9 @@ namespace WingroveAudio
                 float v3D = 1.0f;
                 if(settings != null)
                 {
-                    return settings.EvaluateStandard(m_audioPositioning.magnitude);
-                }
+                    float spab = settings.GetSpatialBlend(m_audioPositioningDistance);
+                    v3D = Mathf.Lerp(settings.EvaluateStandard(m_audioPositioningDistance), 1.0f, spab);
+                }                
                 return m_fadeT * m_audioClipSource.GetMixBusLevel() * v3D;
             }
         }
@@ -263,10 +265,11 @@ namespace WingroveAudio
                     // update audio area                    
                     m_audioPositioning = 
                         WingroveRoot.Instance.GetRelativeListeningPosition(m_targetAudioArea, m_targetGameObject.transform.position);
-
+                    m_audioPositioningDistance = (WingroveRoot.Instance.GetSingleListener().transform.position - 
+                        m_audioPositioning).magnitude;
                 }
             }
-        }
+        }        
 
         public void SetMix()
         {
@@ -284,7 +287,7 @@ namespace WingroveAudio
                 else
                 {
                     // we have 3d settings, so place correctly & apply spatial blend
-                    float spBlend = settings.GetSpatialBlend(m_audioPositioning.magnitude);
+                    float spBlend = settings.GetSpatialBlend(m_audioPositioningDistance);
                     if (m_currentAudioSource.m_audioSource.spatialBlend != spBlend)
                     {
                         m_currentAudioSource.m_audioSource.spatialBlend = spBlend;
@@ -444,6 +447,16 @@ namespace WingroveAudio
                 }
             }
             return timeRemaining;
+        }
+
+        public float GetFadeT()
+        {
+            return m_fadeT;
+        }
+
+        public WingroveRoot.AudioSourcePoolItem GetCurrentAudioSource()
+        {
+            return m_currentAudioSource;
         }
 
         public void Stop(float fade)

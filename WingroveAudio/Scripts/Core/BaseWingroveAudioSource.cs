@@ -63,6 +63,11 @@ namespace WingroveAudio
             }
         }
 
+        public List<ActiveCue> GetActiveCuesDebug()
+        {
+            return m_currentActiveCues;
+        }
+
         void Awake()
         {
             m_mixBus = WingroveMixBus.FindParentMixBus(transform);

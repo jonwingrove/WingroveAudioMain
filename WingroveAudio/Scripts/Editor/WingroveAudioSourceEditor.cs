@@ -20,6 +20,17 @@ namespace WingroveAudio
             EditorGUILayout.PropertyField(audioClip);
 
             base.OnInspectorGUI();
+
+            WingroveAudioSource was = (WingroveAudioSource)target;
+            if (was.GetActiveCuesDebug() != null)
+            {
+                foreach (ActiveCue ac in was.GetActiveCuesDebug())
+                {
+                    string asS = ac.GetCurrentAudioSource() == null ? "NULL" : ac.GetCurrentAudioSource().m_audioSource.name;
+                    EditorGUILayout.LabelField("Active Cue: time: " + ac.GetTime() + " state: " + ac.GetState() + " fade: " + ac.GetFadeT()  + " " + asS + " " + ac.GetTheoreticalVolume());
+                }
+            }
+
             serializedObject.ApplyModifiedProperties();
         }
     }

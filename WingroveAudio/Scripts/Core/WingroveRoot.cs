@@ -170,6 +170,27 @@ namespace WingroveAudio
 #if UNITY_EDITOR
             m_startTime = AudioSettings.dspTime;
 #endif
+
+            UnityEngine.SceneManagement.SceneManager.activeSceneChanged += ClearParams;
+        }
+
+        void ClearParams(UnityEngine.SceneManagement.Scene sca, UnityEngine.SceneManagement.Scene scb)
+        {
+            foreach(KeyValuePair<string,CachedParameterValue> cpv in m_values.m_parameterValues)
+            {
+                if(!cpv.Value.m_isGlobalValue)
+                {
+                    Dictionary<GameObject, float> newP = new Dictionary<GameObject, float>();
+                    foreach(KeyValuePair<GameObject,float> oldP in cpv.Value.m_valueObject)
+                    {
+                        if(oldP.Key != null)
+                        {
+                            newP.Add(oldP.Key, oldP.Value);
+                        }
+                    }
+                    cpv.Value.m_valueObject = newP;
+                }
+            }
         }
 
         public Audio3DSetting GetDefault3DSettings()
@@ -204,7 +225,7 @@ namespace WingroveAudio
             if ( m_debugGUI )
             {
                 Vector3 pos = new Vector3(0,0);
-                GUI.BeginGroup(new Rect(0,0,500,1000),"", "box");
+                GUI.BeginGroup(new Rect(0,0,600,1000),"", "box");
                 GUI.Label(new Rect(pos.x,pos.y,300,20),"Number of sources: " + m_audioSourcePool.Count);
                 pos.y+=20;
                 foreach(AudioSourcePoolItem aspi in m_audioSourcePool)
@@ -219,6 +240,11 @@ namespace WingroveAudio
                     }
 
                     pos.y+=20;
+                    if(pos.y>=980)
+                    {
+                        pos.y = 40;
+                        pos.x += 300;
+                    }
                 }
                 GUI.EndGroup();
             }
@@ -272,6 +298,11 @@ namespace WingroveAudio
             cpv.m_valueObject[go] = setValue;
             cpv.m_isGlobalValue = false;
 		}
+
+        public Dictionary<string, CachedParameterValue> GetAllParams()
+        {
+            return m_values.m_parameterValues;
+        }
 
         public bool UseDBScale
         {
@@ -442,7 +473,7 @@ namespace WingroveAudio
 
         private AudioSourcePoolItem CreateAudioSource()
         {
-            GameObject newAudioSource = new GameObject("PooledAudioSource");
+            GameObject newAudioSource = new GameObject("PooledAudioSource_"+ m_audioSourcePool.Count);
             newAudioSource.transform.parent = m_pool.transform;
 
             AudioSource aSource = newAudioSource.AddComponent<AudioSource>();
