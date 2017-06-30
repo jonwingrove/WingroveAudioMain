@@ -26,14 +26,19 @@ namespace WingroveAudio
         private MultipleListenerPositioningModel m_listeningModel = MultipleListenerPositioningModel.InverseSquareDistanceWeighted;
 
         private GUISkin m_editorSkin;
+        private static bool s_hasInstance;
 
         public static WingroveRoot Instance
         {
             get
             {
-                if (s_instance == null)
+                if (!s_hasInstance)
                 {
                     s_instance = (WingroveRoot)GameObject.FindObjectOfType(typeof(WingroveRoot));
+                    if(s_instance != null)
+                    {
+                        s_hasInstance = true;
+                    }
                 }
                 return s_instance;
             }
@@ -79,14 +84,19 @@ namespace WingroveAudio
         public class CachedParameterValue
         {
             public float m_valueNull;
-            public Dictionary<GameObject, float> m_valueObject = new Dictionary<GameObject, float>();
+            public Dictionary<int, float> m_valueObject = new Dictionary<int, float>();
+            public Dictionary<int, GameObject> m_nullCheckDictionary = new Dictionary<int, GameObject>();            
             public bool m_isGlobalValue;
+            public System.Int64 m_lastGlobalValueN = 0;
         }
 		
 		class ParameterValues
 		{
-			public Dictionary<string, CachedParameterValue> m_parameterValues = new Dictionary<string, CachedParameterValue>();
-		}
+			public Dictionary<int, CachedParameterValue> m_parameterValues = new Dictionary<int, CachedParameterValue>();
+            public List<CachedParameterValue> m_parameterValuesFast = new List<CachedParameterValue>();
+            public Dictionary<string, int> m_parameterToIntValues = new Dictionary<string, int>();
+            public Dictionary<int, string> m_intToParameterValues = new Dictionary<int, string>();
+        }
 		ParameterValues m_values = new ParameterValues();
         private GameObject m_thisListener;
 
@@ -159,11 +169,14 @@ namespace WingroveAudio
                 }
             }
 
-            
-            m_thisListener = new GameObject("Listener");
-            m_thisListener.transform.parent = transform;
-            m_thisListener.AddComponent<AudioListener>();
-            m_thisListener.transform.localPosition = m_listenerOffset;
+
+            if (m_thisListener == null)
+            {
+                m_thisListener = new GameObject("Listener");
+                m_thisListener.transform.parent = transform;
+                m_thisListener.AddComponent<AudioListener>();
+                m_thisListener.transform.localPosition = m_listenerOffset;
+            }
         
             transform.position = Vector3.zero;
             m_lastDSPTime = AudioSettings.dspTime;
@@ -171,26 +184,102 @@ namespace WingroveAudio
             m_startTime = AudioSettings.dspTime;
 #endif
 
-            UnityEngine.SceneManagement.SceneManager.activeSceneChanged += ClearParams;
+            UnityEngine.SceneManagement.SceneManager.activeSceneChanged += SceneChanged;
         }
 
-        void ClearParams(UnityEngine.SceneManagement.Scene sca, UnityEngine.SceneManagement.Scene scb)
+        private int m_slowConstantCtr = 0;
+        private List<int> m_toRemoveParamsIntCached = new List<int>(32);
+        void ClearParamSlowConstant(int count)
         {
-            foreach(KeyValuePair<string,CachedParameterValue> cpv in m_values.m_parameterValues)
+            int numDone = 0;
+            if (m_values.m_parameterValuesFast.Count != 0)
             {
-                if(!cpv.Value.m_isGlobalValue)
+                CachedParameterValue cpv = m_values.m_parameterValuesFast[m_slowConstantCtr %
+                    m_values.m_parameterValuesFast.Count];
+                if (!cpv.m_isGlobalValue)
                 {
-                    Dictionary<GameObject, float> newP = new Dictionary<GameObject, float>();
-                    foreach(KeyValuePair<GameObject,float> oldP in cpv.Value.m_valueObject)
+                    foreach (KeyValuePair<int, GameObject> kvp in cpv.m_nullCheckDictionary)
                     {
-                        if(oldP.Key != null)
+                        if (kvp.Value == null)
                         {
-                            newP.Add(oldP.Key, oldP.Value);
+                            m_toRemoveParamsIntCached.Add(kvp.Key);
+                            numDone++;
+                            if (count != 0 && numDone == count)
+                            {
+                                break;
+                            }
                         }
                     }
-                    cpv.Value.m_valueObject = newP;
+                    if (numDone > 0)
+                    {
+                        foreach (int tr in m_toRemoveParamsIntCached)
+                        {
+                            cpv.m_nullCheckDictionary.Remove(tr);
+                            cpv.m_valueObject.Remove(tr);
+                        }
+                        m_toRemoveParamsIntCached.Clear();
+                    }
                 }
             }
+            m_slowConstantCtr++;
+
+        }
+
+        void ClearParams(int count)
+        {
+            int numDone = 0;            
+            foreach (KeyValuePair<int, CachedParameterValue> cpv in m_values.m_parameterValues)
+            {
+                if (!cpv.Value.m_isGlobalValue)
+                {
+                    foreach (KeyValuePair<int, GameObject> kvp in cpv.Value.m_nullCheckDictionary)
+                    {
+                        if(kvp.Value == null)
+                        {
+                            m_toRemoveParamsIntCached.Add(kvp.Key);
+                            numDone++;
+                            if(count != 0 && numDone == count)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    if (numDone > 0)
+                    {
+                        foreach (int tr in m_toRemoveParamsIntCached)
+                        {
+                            cpv.Value.m_nullCheckDictionary.Remove(tr);
+                            cpv.Value.m_valueObject.Remove(tr);
+                        }
+                        m_toRemoveParamsIntCached.Clear();
+                    }
+                }
+                if (count != 0 && numDone >= count)
+                {
+                    break;
+                }
+            }
+
+        }
+
+        public int GetParameterId(string fromParameter)
+        {
+            int result = 0;
+            if ( !m_values.m_parameterToIntValues.TryGetValue(fromParameter, out result) )
+            {
+                result = m_values.m_parameterToIntValues.Count + 1;
+                m_values.m_parameterToIntValues[fromParameter] = result;
+                m_values.m_intToParameterValues[result] = fromParameter;
+            }
+            return result;
+        }
+
+        void SceneChanged(UnityEngine.SceneManagement.Scene sca, UnityEngine.SceneManagement.Scene scb)
+        {
+            // reset has instance...just in case.
+            s_hasInstance = false;
+            // full clear on scene change...
+            ClearParams(0);
         }
 
         public Audio3DSetting GetDefault3DSettings()
@@ -249,8 +338,15 @@ namespace WingroveAudio
                 GUI.EndGroup();
             }
         }
+
+        public CachedParameterValue GetParameter(int parameter)
+        {
+            CachedParameterValue result;
+            m_values.m_parameterValues.TryGetValue(parameter, out result);
+            return result;
+        }
         
-		public float GetParameterForGameObject(string parameter, GameObject go)
+		public float GetParameterForGameObject(int parameter, int gameObjectId)
 		{
             CachedParameterValue result;
             m_values.m_parameterValues.TryGetValue(parameter, out result);
@@ -267,13 +363,13 @@ namespace WingroveAudio
                 else
                 {
                     float resultF = 0.0f;
-                    result.m_valueObject.TryGetValue(go, out resultF);
+                    result.m_valueObject.TryGetValue(gameObjectId, out resultF);
                     return resultF;
                 }
             }
 		}
-		
-		public void SetParameterGlobal(string parameter, float setValue)
+        
+		public void SetParameterGlobal(int parameter, float setValue)
 		{
             CachedParameterValue cpv = null;
             m_values.m_parameterValues.TryGetValue(parameter, out cpv);
@@ -281,27 +377,36 @@ namespace WingroveAudio
             {
                 cpv = new CachedParameterValue();
                 m_values.m_parameterValues[parameter] = cpv;
+                m_values.m_parameterValuesFast.Add(cpv);
             }
             cpv.m_valueNull = setValue;
+            cpv.m_lastGlobalValueN++;
             cpv.m_isGlobalValue = true;
 		}
-		
-		public void SetParameterForObject(string parameter, GameObject go, float setValue)
+
+        public void SetParameterForObject(int parameter, int gameObjectId, GameObject go, float setValue)
 		{
             CachedParameterValue cpv = null;
             m_values.m_parameterValues.TryGetValue(parameter, out cpv);
             if (cpv == null)
             {
                 cpv = new CachedParameterValue();
-                m_values.m_parameterValues[parameter] = cpv;
+                m_values.m_parameterValues[parameter] = cpv;                
+                m_values.m_parameterValuesFast.Add(cpv);
             }
-            cpv.m_valueObject[go] = setValue;
+            cpv.m_valueObject[gameObjectId] = setValue;
+            cpv.m_nullCheckDictionary[gameObjectId] = go;
             cpv.m_isGlobalValue = false;
 		}
 
-        public Dictionary<string, CachedParameterValue> GetAllParams()
+        public Dictionary<int, CachedParameterValue> GetAllParams()
         {
             return m_values.m_parameterValues;
+        }        
+
+        public string GetParamName(int val)
+        {
+            return m_values.m_intToParameterValues[val];
         }
 
         public bool UseDBScale
@@ -545,8 +650,11 @@ namespace WingroveAudio
 
         void Update()
         {
+            // do some clearing of old parameters...
+            ClearParamSlowConstant(1);
+
             // update mix buses first
-            foreach(WingroveMixBus wmb in m_allMixBuses)
+            foreach (WingroveMixBus wmb in m_allMixBuses)
             {
                 wmb.DoUpdate();
             }
@@ -637,11 +745,9 @@ namespace WingroveAudio
             if (aa != null)
             {
                 inPosition = aa.GetListeningPosition(m_listeners[0].transform.position, inPosition);
-                // the matrix inaccuracies of transforming a position at the listener
-                // to essentially the same place cause a weird flickering sound- so let's just return V3.zero
                 if (inPosition == m_listeners[0].transform.position)
                 {
-                    return Vector3.zero;
+                    return m_listeners[0].transform.position;
                 }
                 else
                 {

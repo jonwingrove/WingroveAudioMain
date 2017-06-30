@@ -20,9 +20,15 @@ namespace WingroveAudio
         [SerializeField]
         private bool m_parameterHighMeansReduceVolume;
 
-        public override float GetVolumeMultiplier(GameObject linkedObject)
+        private int m_cachedParameterId;
+
+        public override float GetVolumeMultiplier(int linkedObjectId)
         {
-            float parameter = WingroveRoot.Instance.GetParameterForGameObject(m_volumeParameter, linkedObject);
+            if(m_cachedParameterId == 0)
+            {
+                m_cachedParameterId = WingroveRoot.Instance.GetParameterId(m_volumeParameter);
+            }
+            float parameter = WingroveRoot.Instance.GetParameterForGameObject(m_cachedParameterId, linkedObjectId);
 
             if(m_parameterHighMeansReduceVolume)
             {

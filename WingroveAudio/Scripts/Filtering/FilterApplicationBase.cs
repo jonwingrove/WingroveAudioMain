@@ -3,5 +3,5 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class FilterApplicationBase : MonoBehaviour {    
-    public abstract void UpdateFor(PooledAudioSource playingSource, GameObject linkedObject);    
+    public abstract void UpdateFor(PooledAudioSource playingSource, int linkedObjectId);    
 }

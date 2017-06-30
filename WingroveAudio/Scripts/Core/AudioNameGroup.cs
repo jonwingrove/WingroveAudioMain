@@ -9,22 +9,22 @@ using UnityEditor;
 namespace WingroveAudio
 {
     public class AudioNameGroup : ScriptableObject
-    {                
+    {
         [SerializeField]
         private string[] m_events;
-        
+
         [SerializeField]
         private string[] m_parameters;
 
         public string[] GetEvents()
         {
-            if(m_events == null)
+            if (m_events == null)
             {
                 m_events = new string[] { };
             }
             return m_events;
         }
-        
+
         public string[] GetParameters()
         {
             if (m_parameters == null)
@@ -57,15 +57,15 @@ namespace WingroveAudio
             foreach (string s in splits)
             {
                 int index = 0;
-                foreach(char c in s)
+                foreach (char c in s)
                 {
                     if (index == 0)
                     {
-                        if(char.IsLetterOrDigit(c))
+                        if (char.IsLetterOrDigit(c))
                         {
-                            if(wordIndex==0)
+                            if (wordIndex == 0)
                             {
-                                if(char.IsLetter(c))
+                                if (char.IsLetter(c))
                                 {
                                     result += char.ToUpperInvariant(c);
                                 }
@@ -124,7 +124,19 @@ namespace WingroveAudio
 
             foreach (string e in m_parameters)
             {
-                sb.AppendLine("            public const string " + SanitiseString(e) + " = \"" + e + "\";");
+                string sanitised = SanitiseString(e);
+                sb.AppendLine("            public const string " + sanitised + " = \"" + e + "\";");
+
+
+                sb.AppendLine("            private static int CacheVal_" + sanitised + "_Internal = 0;");
+                sb.AppendLine("            public static int CacheVal_"+ sanitised + "()");
+                sb.AppendLine("            {");
+                sb.AppendLine("                if (CacheVal_"+ sanitised+"_Internal == 0)");
+                sb.AppendLine("                {");
+                sb.AppendLine("                    CacheVal_" + sanitised + "_Internal = WingroveAudio.WingroveRoot.Instance.GetParameterId(" + sanitised + ");");
+                sb.AppendLine("                }");
+                sb.AppendLine("                return CacheVal_" + sanitised + "_Internal;");
+                sb.AppendLine("            }");
             }
 
             sb.AppendLine("        }");

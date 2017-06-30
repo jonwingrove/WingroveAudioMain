@@ -22,9 +22,15 @@ namespace WingroveAudio
         [SerializeField]
         private bool m_smoothStep = true;
 
-        public override void UpdateFor(PooledAudioSource playingSource, GameObject linkedObject)
+        private int m_cachedParameterId;
+
+        public override void UpdateFor(PooledAudioSource playingSource, int linkedObjectId)
         {
-            float dT = Mathf.Clamp01(WingroveRoot.Instance.GetParameterForGameObject(m_filterParameterController, linkedObject));
+            if(m_cachedParameterId == 0)
+            {
+                m_cachedParameterId = WingroveRoot.Instance.GetParameterId(m_filterParameterController);
+            }
+            float dT = Mathf.Clamp01(WingroveRoot.Instance.GetParameterForGameObject(m_cachedParameterId, linkedObjectId));
             float filter = 0;
             float resonance = 0;
             if (m_smoothStep)

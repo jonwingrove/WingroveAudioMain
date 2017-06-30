@@ -21,7 +21,10 @@ namespace WingroveAudio
         private bool m_forObject;
         [SerializeField]
         private AudioArea m_useAudioArea;
-        
+
+        private int m_cachedGameObjectId;
+        private int m_parameterId;
+
         // Update is called once per frame
         void Update()
         {
@@ -38,14 +41,24 @@ namespace WingroveAudio
                 
                 targetValue = Mathf.Clamp01((delta - m_minDist) / (m_maxDist - m_minDist));
             }
-            
+
+
+            if (m_parameterId == 0)
+            {
+                m_parameterId = WingroveRoot.Instance.GetParameterId(m_parameterToSet);
+            }
+
             if (m_forObject)
             {
-                WingroveRoot.Instance.SetParameterForObject(m_parameterToSet, gameObject, targetValue);
+                if(m_cachedGameObjectId == 0)
+                {
+                    m_cachedGameObjectId = gameObject.GetInstanceID();
+                }
+                WingroveRoot.Instance.SetParameterForObject(m_parameterId, m_cachedGameObjectId, gameObject, targetValue);
             }
             else
             {
-                WingroveRoot.Instance.SetParameterGlobal(m_parameterToSet, targetValue);
+                WingroveRoot.Instance.SetParameterGlobal(m_parameterId, targetValue);
             }
         }
     }

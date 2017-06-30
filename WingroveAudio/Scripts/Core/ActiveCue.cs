@@ -18,10 +18,12 @@ namespace WingroveAudio
         private GameObject m_originatorSource;
         private BaseWingroveAudioSource m_audioClipSource;
         private GameObject m_targetGameObject;
+        private int m_targetGameObjectId;
         private AudioArea m_targetAudioArea;
         private double m_dspStartTime = 0.0f;
         private bool m_hasDSPStartTime = false;
-
+        private Audio3DSetting m_audioSettings;
+        private bool m_hasAudioSettings;
         
         public float m_fadeT;
         public float m_fadeSpeed;
@@ -61,10 +63,18 @@ namespace WingroveAudio
             if (m_targetGameObject != null)
             {
                 m_targetAudioArea = target.GetComponent<AudioArea>();
+                m_targetGameObjectId = target.GetInstanceID();
             }
             m_audioClipSource = m_originatorSource.GetComponent<BaseWingroveAudioSource>();
             m_pitch = m_audioClipSource.GetNewPitch();
             m_audioClipSource.AddUsage();
+
+            m_audioSettings = m_audioClipSource.Get3DSettings();
+            if (m_audioSettings != null)
+            {
+                m_hasAudioSettings = true;
+            }
+
             //transform.parent = m_originatorSource.transform;
             Update();            
         }       
@@ -200,21 +210,20 @@ namespace WingroveAudio
             if (queueEnableAndPlay)
             {
                 if (m_currentAudioSource != null)
-                {                    
+                {
                     m_currentAudioSource.m_audioSource.timeSamples = m_currentPosition;
                     m_currentAudioSource.m_audioSource.enabled = true;
-                    Audio3DSetting settings = m_audioClipSource.Get3DSettings();
-                    if (settings == null)
+                    if (!m_hasAudioSettings)
                     {
                         m_currentAudioSource.m_audioSource.spatialBlend = 0.0f;
                         m_currentAudioSource.m_audioSource.spatialize = false;
                     }
                     else
                     {
-                        AudioRolloffMode rolloffMode = settings.GetRolloffMode();
+                        AudioRolloffMode rolloffMode = m_audioSettings.GetRolloffMode();
                         m_currentAudioSource.m_audioSource.rolloffMode = rolloffMode;
-                        m_currentAudioSource.m_audioSource.minDistance = settings.GetMinDistance();
-                        m_currentAudioSource.m_audioSource.maxDistance = settings.GetMaxDistance();
+                        m_currentAudioSource.m_audioSource.minDistance = m_audioSettings.GetMinDistance();
+                        m_currentAudioSource.m_audioSource.maxDistance = m_audioSettings.GetMaxDistance();
                         m_currentAudioSource.m_audioSource.spatialize = true;
                     }
 
@@ -226,6 +235,7 @@ namespace WingroveAudio
                     else
                     {
                         m_currentAudioSource.m_audioSource.Play();
+                        m_currentAudioSource.m_audioSource.timeSamples = m_currentPosition;
                     }
                 }
             }
@@ -239,12 +249,11 @@ namespace WingroveAudio
             }
             else
             {
-                Audio3DSetting settings = m_audioClipSource.Get3DSettings();
                 float v3D = 1.0f;
-                if(settings != null)
+                if(m_hasAudioSettings)
                 {
-                    float spab = settings.GetSpatialBlend(m_audioPositioningDistance);
-                    v3D = Mathf.Lerp(settings.EvaluateStandard(m_audioPositioningDistance), 1.0f, spab);
+                    float spab = m_audioSettings.GetSpatialBlend(m_audioPositioningDistance);
+                    v3D = Mathf.Lerp(m_audioSettings.EvaluateStandard(m_audioPositioningDistance), 1.0f, spab);
                 }                
                 return m_fadeT * m_audioClipSource.GetMixBusLevel() * v3D;
             }
@@ -252,13 +261,12 @@ namespace WingroveAudio
 		
 		public float GetMixPitch()
 		{
-			return m_pitch * m_audioClipSource.GetPitchModifier(m_targetGameObject);
+			return m_pitch * m_audioClipSource.GetPitchModifier(m_targetGameObjectId);
 		}
 
         public void UpdatePosition()
         {
-            Audio3DSetting settings = m_audioClipSource.Get3DSettings();
-            if (settings != null)
+            if (m_hasAudioSettings)
             {
                 if (m_targetGameObject != null)
                 {
@@ -276,8 +284,7 @@ namespace WingroveAudio
             UpdatePosition();
             if (m_currentAudioSource != null)
             {
-                Audio3DSetting settings = m_audioClipSource.Get3DSettings();
-                if (settings == null)
+                if (!m_hasAudioSettings)
                 {
                     // no 3d settings? put at root
                     m_currentAudioSource.m_audioSource.spatialBlend = 0.0f;
@@ -287,7 +294,7 @@ namespace WingroveAudio
                 else
                 {
                     // we have 3d settings, so place correctly & apply spatial blend
-                    float spBlend = settings.GetSpatialBlend(m_audioPositioningDistance);
+                    float spBlend = m_audioSettings.GetSpatialBlend(m_audioPositioningDistance);
                     if (m_currentAudioSource.m_audioSource.spatialBlend != spBlend)
                     {
                         m_currentAudioSource.m_audioSource.spatialBlend = spBlend;
@@ -300,9 +307,9 @@ namespace WingroveAudio
                 }
                 // apply the full mix, including custom rolloff
                 m_currentAudioSource.m_audioSource.volume = m_fadeT * m_audioClipSource.GetMixBusLevel()
-                        * m_audioClipSource.GetVolumeModifier(m_targetGameObject);
+                        * m_audioClipSource.GetVolumeModifier(m_targetGameObjectId);
                 m_currentAudioSource.m_audioSource.pitch = GetMixPitch();
-                float targDoppler = settings == null ? 1.0f : settings.GetDopplerLevel();
+                float targDoppler = m_hasAudioSettings ? m_audioSettings.GetDopplerLevel() : 1.0f;
                 if (m_currentAudioSource.m_audioSource.dopplerLevel < targDoppler)
                 {
                     m_currentAudioSource.m_audioSource.dopplerLevel = Mathf.Clamp(m_currentAudioSource.m_audioSource.dopplerLevel + 0.1f, 0, targDoppler);
@@ -312,7 +319,7 @@ namespace WingroveAudio
                     m_currentAudioSource.m_audioSource.dopplerLevel = targDoppler;
                 }
                 // update any filters
-                m_audioClipSource.UpdateFilters(m_currentAudioSource.m_pooledAudioSource, m_targetGameObject);
+                m_audioClipSource.UpdateFilters(m_currentAudioSource.m_pooledAudioSource, m_targetGameObjectId);
 
                 if (WingroveRoot.Instance.ShouldCalculateMS(0))
                 {

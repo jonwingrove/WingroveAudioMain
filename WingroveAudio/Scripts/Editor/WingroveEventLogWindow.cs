@@ -36,8 +36,8 @@ namespace WingroveAudio
                 GUILayout.EndHorizontal();
                 if (m_showParameters)
                 {
-                    Dictionary<string, WingroveRoot.CachedParameterValue> all = WingroveRoot.Instance.GetAllParams();
-                    foreach(KeyValuePair<string,WingroveRoot.CachedParameterValue> cpv in all)
+                    Dictionary<int, WingroveRoot.CachedParameterValue> all = WingroveRoot.Instance.GetAllParams();
+                    foreach(KeyValuePair<int, WingroveRoot.CachedParameterValue> cpv in all)
                     {
                         
                         
@@ -45,19 +45,20 @@ namespace WingroveAudio
                         if(cpv.Value.m_isGlobalValue)
                         {
                             GUILayout.BeginHorizontal();
-                            GUILayout.Label(cpv.Key);
+                            GUILayout.Label(WingroveRoot.Instance.GetParamName(cpv.Key));
                             GUILayout.Label(string.Format("{0:0.00}", cpv.Value.m_valueNull));
                             GUILayout.EndHorizontal();
                         }
                         else
                         {
                             GUILayout.BeginHorizontal();
-                            GUILayout.Label(cpv.Key);
-                            foreach (KeyValuePair<GameObject, float> dn in cpv.Value.m_valueObject)
+                            GUILayout.Label(WingroveRoot.Instance.GetParamName(cpv.Key));
+                            foreach (KeyValuePair<int, float> dn in cpv.Value.m_valueObject)
                             {
-                                if(dn.Key != null)
+                                GameObject ro = cpv.Value.m_nullCheckDictionary[dn.Key];
+                                if(ro != null)
                                 {
-                                    EditorGUILayout.ObjectField(dn.Key, typeof(GameObject), true);
+                                    EditorGUILayout.ObjectField(ro, typeof(GameObject), true);
                                     GUILayout.Label(string.Format("{0:0.00}", dn.Value));
                                 }
                             }

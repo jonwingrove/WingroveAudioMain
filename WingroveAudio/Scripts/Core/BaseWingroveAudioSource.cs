@@ -37,8 +37,9 @@ namespace WingroveAudio
         [SerializeField]
         private RetriggerOnSameObject m_retriggerOnSameObjectBehaviour = RetriggerOnSameObject.PlayAnother;
          
-        protected List<ActiveCue> m_currentActiveCues = new List<ActiveCue>(32);
+        protected List<ActiveCue> m_currentActiveCues = new List<ActiveCue>(32);        
         protected List<ActiveCue> m_toRemove = new List<ActiveCue>(32);
+        protected bool m_toRemoveDirty = false;
         protected WingroveMixBus m_mixBus;
         protected InstanceLimiter m_instanceLimiter;
 		protected List<ParameterModifierBase> m_parameterModifiers = new List<ParameterModifierBase>();
@@ -115,20 +116,20 @@ namespace WingroveAudio
                 FindFilterApplications(t.parent);
             }
         }
-		
-		public float GetPitchModifier(GameObject go)
+
+		public float GetPitchModifier(int goId)
 		{
 			float pMod = 1.0f;
             List<ParameterModifierBase>.Enumerator pvEn = m_parameterModifiers.GetEnumerator();
             while(pvEn.MoveNext())
             {
                 ParameterModifierBase pvMod = pvEn.Current;
-				pMod *= pvMod.GetPitchMultiplier(go);
+				pMod *= pvMod.GetPitchMultiplier(goId);
 			}			
 			return pMod;
 		}
 		
-		public float GetVolumeModifier(GameObject go)
+		public float GetVolumeModifier(int goId)
 		{
 			float vMod = m_clipMixVolume;
 
@@ -136,12 +137,12 @@ namespace WingroveAudio
             while(pvEn.MoveNext())
             {
                 ParameterModifierBase pvMod = pvEn.Current;
-				vMod *= pvMod.GetVolumeMultiplier(go);
+				vMod *= pvMod.GetVolumeMultiplier(goId);
 			}			
 			return vMod;
 		}
 
-        public void UpdateFilters(PooledAudioSource targetPlayer, GameObject go)
+        public void UpdateFilters(PooledAudioSource targetPlayer, int goId)
         {
             targetPlayer.ResetFiltersForFrame();
 
@@ -149,7 +150,7 @@ namespace WingroveAudio
             while (filtEn.MoveNext())
             {
                 FilterApplicationBase faB = filtEn.Current;
-                faB.UpdateFor(targetPlayer, go);
+                faB.UpdateFor(targetPlayer, goId);
             }
 
             targetPlayer.CommitFiltersForFrame();
@@ -187,15 +188,21 @@ namespace WingroveAudio
 
         protected void UpdateInternal()
         {
-            foreach (ActiveCue c in m_currentActiveCues)
+            List<ActiveCue>.Enumerator en = m_currentActiveCues.GetEnumerator();
+            while(en.MoveNext())
             {
+                ActiveCue c = en.Current;
                 c.Update();
             }
-            foreach (ActiveCue c in m_toRemove)
+            if (m_toRemoveDirty)
             {
-                m_currentActiveCues.Remove(c);
+                foreach (ActiveCue c in m_toRemove)
+                {
+                    m_currentActiveCues.Remove(c);
+                }
+                m_toRemove.Clear();
+                m_toRemoveDirty = false;
             }
-            m_toRemove.Clear();
         }
 
         void OnDestroy()
@@ -310,6 +317,7 @@ namespace WingroveAudio
         public void RePool(ActiveCue cue)
         {
             m_toRemove.Add(cue);
+            m_toRemoveDirty = true;
         }
 
         public ActiveCue Play(ActiveCue cue, float fade, GameObject target)
