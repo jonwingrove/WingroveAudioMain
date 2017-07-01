@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.Collections;
-#if WA_TK2D
 namespace WingroveAudio
 {
     [AddComponentMenu("WingroveAudio/Event Triggers/tk2D Click Events Trigger")]
@@ -70,4 +69,3 @@ namespace WingroveAudio
 
     }
 }
-#endif

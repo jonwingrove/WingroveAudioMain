@@ -27,7 +27,7 @@ namespace WingroveAudio
                 foreach (ActiveCue ac in was.GetActiveCuesDebug())
                 {
                     string asS = ac.GetCurrentAudioSource() == null ? "NULL" : ac.GetCurrentAudioSource().m_audioSource.name;
-                    EditorGUILayout.LabelField("Active Cue: time: " + ac.GetTime() + " state: " + ac.GetState() + " fade: " + ac.GetFadeT()  + " " + asS + " " + ac.GetTheoreticalVolume());
+                    EditorGUILayout.LabelField("Active Cue: time: " + ac.GetTime() + " state: " + ac.GetState() + " fade: " + ac.GetFadeT()  + " " + asS + " " + ac.GetTheoreticalVolumeCached());
                 }
             }
 

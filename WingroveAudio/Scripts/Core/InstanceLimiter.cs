@@ -10,7 +10,7 @@ namespace WingroveAudio
         private int m_instanceLimit = 1;
         public enum LimitMethod
         {
-            RemoveOldest,            
+            RemoveOldest,
             DontCreateNew
         }
         [SerializeField]
@@ -20,34 +20,43 @@ namespace WingroveAudio
         private float m_removedSourceFade = 0.0f;
         [SerializeField]
         private bool m_ignoreStopping = true;
-        [SerializeField]
-        private bool m_perGameObject = false;
 
         List<ActiveCue> m_activeCues = new List<ActiveCue>();
-        Dictionary<GameObject, List<ActiveCue>> m_activeCuesPerObject = new Dictionary<GameObject, List<ActiveCue>>(8);
+
+        private bool m_requiresTidy = false;
+        private int m_addedThisFrame = 0;
+
+        private void Start()
+        {
+            WingroveAudio.WingroveRoot.Instance.RegisterIL(this);
+        }
+
+        public void ResetFrameFlags()
+        {
+            m_addedThisFrame = 0;
+            m_requiresTidy = true;
+        }
 
         public bool CanPlay(GameObject attachedObject)
         {
-            Tidy();
+            if (m_requiresTidy)
+            {
+                Tidy();
+            }
             if (m_limitMethod == LimitMethod.DontCreateNew)
             {
-                if ((attachedObject!=null)&&(m_perGameObject))
+                if (m_activeCues.Count >= m_instanceLimit)
                 {
-                    List<ActiveCue> numActive = null;
-                    if (m_activeCuesPerObject.TryGetValue(attachedObject, out numActive))
-                    {
-                        if (numActive.Count >= m_instanceLimit)
-                        {
-                            return false;
-                        }
-                    }
+                    return false;
                 }
-                else
+            }
+            else
+            {
+                // we've already added a bunch this frame...unlikely these new 
+                // ones are any better...
+                if (m_addedThisFrame >= m_instanceLimit)
                 {
-                    if (m_activeCues.Count >= m_instanceLimit)
-                    {
-                        return false;
-                    }
+                    return false;
                 }
             }
             return true;
@@ -55,47 +64,17 @@ namespace WingroveAudio
 
         public void AddCue(ActiveCue cue, GameObject attachedObject)
         {
+            m_addedThisFrame++;
             m_activeCues.Add(cue);
-            if ((attachedObject != null) && (m_perGameObject))
-            {
-                if (!m_activeCuesPerObject.ContainsKey(attachedObject))
-                {
-                    m_activeCuesPerObject[attachedObject] = new List<ActiveCue>();
-                }
-                m_activeCuesPerObject[attachedObject].Add(cue);
-            }
             Limit(attachedObject);
         }
 
         List<GameObject> m_reusableLeysToRemove = new List<GameObject>(8);
         void Tidy()
         {
+            // done this frame... noice
+            m_requiresTidy = false;
             Tidy(m_activeCues);
-
-            if (m_perGameObject)
-            {
-                m_reusableLeysToRemove.Clear();
-                Dictionary<GameObject,List<ActiveCue>>.ValueCollection.Enumerator enumerator = m_activeCuesPerObject.Values.GetEnumerator();
-                while(enumerator.MoveNext())
-                {
-                    List<ActiveCue> cueList = enumerator.Current;
-                    Tidy(cueList);
-                }
-                Dictionary<GameObject, List<ActiveCue>>.Enumerator enumAc = m_activeCuesPerObject.GetEnumerator();
-                while(enumAc.MoveNext())
-                {
-                    KeyValuePair<GameObject, List<ActiveCue>> kvp = enumAc.Current;
-                    if (kvp.Value.Count == 0)
-                    {
-                        m_reusableLeysToRemove.Add(kvp.Key);
-                    }
-                }
-                List<GameObject>.Enumerator enumRC = m_reusableLeysToRemove.GetEnumerator();
-                while(enumRC.MoveNext())
-                {
-                    m_activeCuesPerObject.Remove(enumRC.Current);
-                }
-            }
         }
 
         List<ActiveCue> m_toRemoveTidyInternal = new List<ActiveCue>(8);
@@ -103,7 +82,7 @@ namespace WingroveAudio
         {
             m_toRemoveTidyInternal.Clear();
             List<ActiveCue>.Enumerator enumerator = list.GetEnumerator();
-            while(enumerator.MoveNext())
+            while (enumerator.MoveNext())
             {
                 ActiveCue c = enumerator.Current;
                 if (c == null || c.GetState() == ActiveCue.CueState.Stopped)
@@ -120,7 +99,7 @@ namespace WingroveAudio
             }
 
             enumerator = m_toRemoveTidyInternal.GetEnumerator();
-            while(enumerator.MoveNext())
+            while (enumerator.MoveNext())
             {
                 list.Remove(enumerator.Current);
             }
@@ -128,33 +107,20 @@ namespace WingroveAudio
 
         void Limit(GameObject attachedObject)
         {
-            Tidy();
+            if (m_requiresTidy)
+            {
+                Tidy();
+            }
 
-            if ((attachedObject != null) && (m_perGameObject))
+            if (m_activeCues.Count > m_instanceLimit)
             {
-                if (m_activeCuesPerObject.ContainsKey(attachedObject))
+                if (m_activeCues[0] != null)
                 {
-                    if (m_activeCuesPerObject[attachedObject].Count > m_instanceLimit)
-                    {
-                        if (m_activeCuesPerObject[attachedObject][0] != null)
-                        {
-                            m_activeCuesPerObject[attachedObject][0].Stop(m_removedSourceFade);
-                        }
-                        m_activeCuesPerObject[attachedObject].Remove(m_activeCuesPerObject[attachedObject][0]);
-                    }                    
+                    m_activeCues[0].Stop(m_removedSourceFade);
                 }
+                m_activeCues.Remove(m_activeCues[0]);
             }
-            else
-            {
-                if (m_activeCues.Count > m_instanceLimit)
-                {
-                    if (m_activeCues[0] != null)
-                    {
-                        m_activeCues[0].Stop(m_removedSourceFade);
-                    }
-                    m_activeCues.Remove(m_activeCues[0]);
-                }
-            }
+
         }
     }
 

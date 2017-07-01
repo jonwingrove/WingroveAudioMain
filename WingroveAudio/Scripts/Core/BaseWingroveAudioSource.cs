@@ -38,9 +38,11 @@ namespace WingroveAudio
         private RetriggerOnSameObject m_retriggerOnSameObjectBehaviour = RetriggerOnSameObject.PlayAnother;
          
         protected List<ActiveCue> m_currentActiveCues = new List<ActiveCue>(32);        
+        protected int m_currentActiveCuesCount;
         protected List<ActiveCue> m_toRemove = new List<ActiveCue>(32);
         protected bool m_toRemoveDirty = false;
         protected WingroveMixBus m_mixBus;
+        protected bool m_hasMixBus;
         protected InstanceLimiter m_instanceLimiter;
 		protected List<ParameterModifierBase> m_parameterModifiers = new List<ParameterModifierBase>();
         protected List<FilterApplicationBase> m_filterApplications = new List<FilterApplicationBase>();
@@ -75,6 +77,7 @@ namespace WingroveAudio
             m_instanceLimiter = WingroveMixBus.FindParentLimiter(transform);
             if (m_mixBus != null)
             {
+                m_hasMixBus = true;
                 m_mixBus.RegisterSource(this);
             }
 			FindParameterModifiers(transform);
@@ -158,7 +161,7 @@ namespace WingroveAudio
 
         public bool IsPlaying()
         {
-            return (m_currentActiveCues.Count > 0);
+            return m_currentActiveCuesCount > 0;
         }
 
         public float GetCurrentTime()
@@ -183,13 +186,16 @@ namespace WingroveAudio
 
         public void DoUpdate()
         {
-            UpdateInternal();
+            if (m_currentActiveCuesCount > 0)
+            {
+                UpdateInternal();
+            }
         }
 
         protected void UpdateInternal()
         {
             List<ActiveCue>.Enumerator en = m_currentActiveCues.GetEnumerator();
-            while(en.MoveNext())
+            while (en.MoveNext())
             {
                 ActiveCue c = en.Current;
                 c.Update();
@@ -197,8 +203,9 @@ namespace WingroveAudio
             if (m_toRemoveDirty)
             {
                 foreach (ActiveCue c in m_toRemove)
-                {
+                {                    
                     m_currentActiveCues.Remove(c);
+                    m_currentActiveCuesCount--;
                 }
                 m_toRemove.Clear();
                 m_toRemoveDirty = false;
@@ -207,7 +214,7 @@ namespace WingroveAudio
 
         void OnDestroy()
         {
-            if (m_mixBus != null)
+            if (m_hasMixBus)
             {
                 m_mixBus.RemoveSource(this);
             }
@@ -220,7 +227,7 @@ namespace WingroveAudio
 
         public int GetImportance()
         {
-            if (m_mixBus == null)
+            if (!m_hasMixBus)
             {
                 return m_importance;
             }
@@ -237,9 +244,10 @@ namespace WingroveAudio
 
         public ActiveCue GetCueForGameObject(GameObject go)
         {
+            int goId = go.GetInstanceID();
             foreach (ActiveCue cue in m_currentActiveCues)
             {
-                if (cue.GetTargetObject() == go && 
+                if (cue.GetTargetObjectId() == goId && 
                     cue.GetState() != ActiveCue.CueState.PlayingFadeOut 
                     && cue.GetState() != ActiveCue.CueState.Stopped)
                 {
@@ -249,7 +257,7 @@ namespace WingroveAudio
 
             foreach (ActiveCue cue in m_currentActiveCues)
             {
-                if (cue.GetTargetObject() == go)
+                if (cue.GetTargetObjectId() == goId)
                 {
                     return cue;
                 }
@@ -271,7 +279,7 @@ namespace WingroveAudio
 
         public float GetMixBusLevel()
         {
-            if (m_mixBus)
+            if (m_hasMixBus)
             {
                 return m_mixBus.GetMixedVol();
             }
@@ -327,8 +335,9 @@ namespace WingroveAudio
                 if ((cue == null)||(m_retriggerOnSameObjectBehaviour == RetriggerOnSameObject.PlayAnother))
                 {                    
                     cue = GetNextCue();
-                    cue.Initialise(gameObject, target);
+                    cue.Initialise(gameObject, this, target);
                     m_currentActiveCues.Add(cue);
+                    m_currentActiveCuesCount++;
                     if (m_beatSynchronizeOnStart)
                     {
                         BeatSyncSource current = BeatSyncSource.GetCurrent();

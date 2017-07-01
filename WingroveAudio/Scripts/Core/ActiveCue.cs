@@ -45,8 +45,10 @@ namespace WingroveAudio
         private int m_framesAtZero = 0;
         private Vector3 m_audioPositioning;
         private float m_audioPositioningDistance;
+        private float m_theoreticalVolumeCached;
+        private int m_importanceCached;
 
-        public void Initialise(GameObject originator, GameObject target)
+        public void Initialise(GameObject originator, BaseWingroveAudioSource bas, GameObject target)
         {
             m_rms = 0;
             m_rmsRequested = false;
@@ -65,9 +67,10 @@ namespace WingroveAudio
                 m_targetAudioArea = target.GetComponent<AudioArea>();
                 m_targetGameObjectId = target.GetInstanceID();
             }
-            m_audioClipSource = m_originatorSource.GetComponent<BaseWingroveAudioSource>();
+            m_audioClipSource = bas;
             m_pitch = m_audioClipSource.GetNewPitch();
             m_audioClipSource.AddUsage();
+            m_importanceCached = m_audioClipSource.GetImportance();
 
             m_audioSettings = m_audioClipSource.Get3DSettings();
             if (m_audioSettings != null)
@@ -89,9 +92,14 @@ namespace WingroveAudio
             return m_targetGameObject;
         }
 
+        public int GetTargetObjectId()
+        {
+            return m_targetGameObjectId;
+        }
+
         public int GetImportance()
         {
-            return m_audioClipSource.GetImportance();
+            return m_importanceCached;
         }
 
 
@@ -102,11 +110,13 @@ namespace WingroveAudio
                 return;
             }
 
+            m_theoreticalVolumeCached = GetTheoreticalVolume();
+
             bool queueEnableAndPlay = false;
             if (m_currentAudioSource == null)
-            {
+            {                
                 // don't bother stealing if we're going to be silent anyway... (optimise: don't re-get if fading out)       
-                if (GetTheoreticalVolume() > 0 && GetState() != CueState.PlayingFadeOut)
+                if (m_theoreticalVolumeCached > 0 && GetState() != CueState.PlayingFadeOut)
                 {
                     m_currentAudioSource = WingroveRoot.Instance.TryClaimPoolSource(this);
                     if (m_currentAudioSource != null)
@@ -215,8 +225,14 @@ namespace WingroveAudio
                     m_currentAudioSource.m_audioSource.enabled = true;
                     if (!m_hasAudioSettings)
                     {
-                        m_currentAudioSource.m_audioSource.spatialBlend = 0.0f;
-                        m_currentAudioSource.m_audioSource.spatialize = false;
+                        if (m_currentAudioSource.m_audioSource.spatialBlend != 0.0f)
+                        {
+                            m_currentAudioSource.m_audioSource.spatialBlend = 0.0f;
+                        }
+                        if (m_currentAudioSource.m_audioSource.spatialize)
+                        {
+                            m_currentAudioSource.m_audioSource.spatialize = false;
+                        }
                     }
                     else
                     {
@@ -224,7 +240,10 @@ namespace WingroveAudio
                         m_currentAudioSource.m_audioSource.rolloffMode = rolloffMode;
                         m_currentAudioSource.m_audioSource.minDistance = m_audioSettings.GetMinDistance();
                         m_currentAudioSource.m_audioSource.maxDistance = m_audioSettings.GetMaxDistance();
-                        m_currentAudioSource.m_audioSource.spatialize = true;
+                        if (!m_currentAudioSource.m_audioSource.spatialize)
+                        {
+                            m_currentAudioSource.m_audioSource.spatialize = true;
+                        }
                     }
 
                     if ((m_hasDSPStartTime) && (m_dspStartTime > AudioSettings.dspTime))
@@ -241,7 +260,7 @@ namespace WingroveAudio
             }
         }
 
-        public float GetTheoreticalVolume()
+        private float GetTheoreticalVolume()
         {
             if (m_isPaused)
             {
@@ -257,6 +276,11 @@ namespace WingroveAudio
                 }                
                 return m_fadeT * m_audioClipSource.GetMixBusLevel() * v3D;
             }
+        }
+
+        public float GetTheoreticalVolumeCached()
+        {
+            return m_theoreticalVolumeCached;
         }
 		
 		public float GetMixPitch()
@@ -287,8 +311,14 @@ namespace WingroveAudio
                 if (!m_hasAudioSettings)
                 {
                     // no 3d settings? put at root
-                    m_currentAudioSource.m_audioSource.spatialBlend = 0.0f;
-                    m_currentAudioSource.m_audioSource.spatialize = false;
+                    if (m_currentAudioSource.m_audioSource.spatialBlend != 0.0f)
+                    {
+                        m_currentAudioSource.m_audioSource.spatialBlend = 0.0f;
+                    }
+                    if (m_currentAudioSource.m_audioSource.spatialize)
+                    {
+                        m_currentAudioSource.m_audioSource.spatialize = false;
+                    }
                     m_currentAudioSource.m_audioSource.transform.position = Vector3.zero;
                 }
                 else
@@ -299,7 +329,10 @@ namespace WingroveAudio
                     {
                         m_currentAudioSource.m_audioSource.spatialBlend = spBlend;
                     }
-                    m_currentAudioSource.m_audioSource.spatialize = true;
+                    if (!m_currentAudioSource.m_audioSource.spatialize)
+                    {
+                        m_currentAudioSource.m_audioSource.spatialize = true;
+                    }
                     if (m_targetGameObject != null)
                     {                        
                         m_currentAudioSource.m_audioSource.transform.position = m_audioPositioning;

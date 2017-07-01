@@ -80,6 +80,7 @@ namespace WingroveAudio
         private List<WingroveListener> m_listeners = new List<WingroveListener>();
         private List<BaseWingroveAudioSource> m_allRegisteredSources = new List<BaseWingroveAudioSource>();
         private List<WingroveMixBus> m_allMixBuses = new List<WingroveMixBus>();
+        private List<InstanceLimiter> m_allInstanceLimiters = new List<InstanceLimiter>();
 
         public class CachedParameterValue
         {
@@ -224,7 +225,12 @@ namespace WingroveAudio
             m_slowConstantCtr++;
 
         }
-
+        
+        public void RegisterIL(InstanceLimiter il)
+        {
+            m_allInstanceLimiters.Add(il);
+        }
+        
         void ClearParams(int count)
         {
             int numDone = 0;            
@@ -552,9 +558,9 @@ namespace WingroveAudio
                     else if (aspi.m_user.GetImportance() == lowestImportance)
                     {
                         if (aspi.m_user.GetState() == ActiveCue.CueState.PlayingFadeOut ||
-                            aspi.m_user.GetTheoreticalVolume() < quietestSimilarImportance)
+                            aspi.m_user.GetTheoreticalVolumeCached() < quietestSimilarImportance)
                         {
-                            quietestSimilarImportance = aspi.m_user.GetTheoreticalVolume();
+                            quietestSimilarImportance = aspi.m_user.GetTheoreticalVolumeCached();
                             bestSteal = aspi;
                         }
                     }
@@ -663,6 +669,11 @@ namespace WingroveAudio
             foreach(BaseWingroveAudioSource bwas in m_allRegisteredSources)
             {
                 bwas.DoUpdate();
+            }
+
+            foreach(InstanceLimiter il in m_allInstanceLimiters)
+            {
+                il.ResetFrameFlags();
             }
 
             m_rmsFrame++;
