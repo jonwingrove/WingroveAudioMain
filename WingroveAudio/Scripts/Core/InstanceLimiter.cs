@@ -69,19 +69,25 @@ namespace WingroveAudio
             Limit(attachedObject);
         }
 
+        public void RemoveCue(ActiveCue cue)
+        {
+            if(m_addedThisFrame > 0)
+            {
+                m_addedThisFrame--;
+            }
+            m_activeCues.Remove(cue);
+        }
+
         List<GameObject> m_reusableLeysToRemove = new List<GameObject>(8);
         void Tidy()
         {
             // done this frame... noice
             m_requiresTidy = false;
-            Tidy(m_activeCues);
-        }
 
-        List<ActiveCue> m_toRemoveTidyInternal = new List<ActiveCue>(8);
-        void Tidy(List<ActiveCue> list)
-        {
+            List<ActiveCue> m_toRemoveTidyInternal = new List<ActiveCue>(8);
+
             m_toRemoveTidyInternal.Clear();
-            List<ActiveCue>.Enumerator enumerator = list.GetEnumerator();
+            List<ActiveCue>.Enumerator enumerator = m_activeCues.GetEnumerator();
             while (enumerator.MoveNext())
             {
                 ActiveCue c = enumerator.Current;
@@ -101,7 +107,7 @@ namespace WingroveAudio
             enumerator = m_toRemoveTidyInternal.GetEnumerator();
             while (enumerator.MoveNext())
             {
-                list.Remove(enumerator.Current);
+                m_activeCues.Remove(enumerator.Current);
             }
         }
 

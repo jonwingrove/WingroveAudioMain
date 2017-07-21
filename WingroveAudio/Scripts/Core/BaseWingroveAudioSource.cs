@@ -26,6 +26,8 @@ namespace WingroveAudio
 
         [SerializeField]
         private bool m_is3DSound = false;
+        [SerializeField]
+        private bool m_instantRejectOnTooDistant;
         
         [SerializeField]
         private Audio3DSetting m_specify3DSettings = null;
@@ -205,6 +207,10 @@ namespace WingroveAudio
                 foreach (ActiveCue c in m_toRemove)
                 {                    
                     m_currentActiveCues.Remove(c);
+                    if(m_instanceLimiter != null)
+                    {
+                        m_instanceLimiter.RemoveCue(c);
+                    }
                     m_currentActiveCuesCount--;
                 }
                 m_toRemove.Clear();
@@ -333,30 +339,50 @@ namespace WingroveAudio
             if (m_instanceLimiter == null || m_instanceLimiter.CanPlay(target))
             {
                 if ((cue == null)||(m_retriggerOnSameObjectBehaviour == RetriggerOnSameObject.PlayAnother))
-                {                    
-                    cue = GetNextCue();
-                    cue.Initialise(gameObject, this, target);
-                    m_currentActiveCues.Add(cue);
-                    m_currentActiveCuesCount++;
-                    if (m_beatSynchronizeOnStart)
+                {
+
+                    bool rejected = false;
+                    if (m_is3DSound && m_instantRejectOnTooDistant)
                     {
-                        BeatSyncSource current = BeatSyncSource.GetCurrent();
-                        if ( current != null )
+                        if (gameObject != null)
                         {
-                            cue.Play(fade, current.GetNextBeatTime());
+                            Vector3 pos =
+                                WingroveRoot.Instance.GetRelativeListeningPosition(null, target.transform.position);
+                            float dist = (WingroveRoot.Instance.GetSingleListener().transform.position -
+                                pos).magnitude;
+                            if(dist > Get3DSettings().GetMaxDistance())
+                            {
+                                rejected = true;
+                            }
+                        }
+                    }
+                    
+                    if (!rejected)
+                    {
+                        cue = GetNextCue();
+                        cue.Initialise(gameObject, this, target);
+                        m_currentActiveCues.Add(cue);
+                        m_currentActiveCuesCount++;
+                        if (m_beatSynchronizeOnStart)
+                        {
+                            BeatSyncSource current = BeatSyncSource.GetCurrent();
+                            if (current != null)
+                            {
+                                cue.Play(fade, current.GetNextBeatTime());
+                            }
+                            else
+                            {
+                                cue.Play(fade);
+                            }
                         }
                         else
                         {
                             cue.Play(fade);
                         }
-                    }
-                    else
-                    {
-                        cue.Play(fade);
-                    }
-                    if (m_instanceLimiter != null)
-                    {
-                        m_instanceLimiter.AddCue(cue, target);
+                        if (m_instanceLimiter != null)
+                        {
+                            m_instanceLimiter.AddCue(cue, target);
+                        }
                     }
                 }
                 else

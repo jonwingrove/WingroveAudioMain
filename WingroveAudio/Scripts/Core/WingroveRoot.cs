@@ -32,6 +32,13 @@ namespace WingroveAudio
         {
             get
             {
+#if UNITY_EDITOR
+                if (!Application.isPlaying)
+                {
+                    // really slow, but we only do in editor mode...
+                    s_hasInstance = s_instance != null;
+                }
+#endif
                 if (!s_hasInstance)
                 {
                     s_instance = (WingroveRoot)GameObject.FindObjectOfType(typeof(WingroveRoot));

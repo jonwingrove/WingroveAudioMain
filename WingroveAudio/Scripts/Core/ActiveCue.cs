@@ -113,7 +113,7 @@ namespace WingroveAudio
             m_theoreticalVolumeCached = GetTheoreticalVolume();
 
             bool queueEnableAndPlay = false;
-            if (m_currentAudioSource == null)
+            if (m_currentAudioSource == null || m_currentAudioSource.m_audioSource == null)
             {                
                 // don't bother stealing if we're going to be silent anyway... (optimise: don't re-get if fading out)       
                 if (m_theoreticalVolumeCached > 0 && GetState() != CueState.PlayingFadeOut)

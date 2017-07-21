@@ -59,6 +59,8 @@ namespace WingroveAudio
                         EditorGUILayout.HelpBox("Without default 3D Settings (on WingroveRoot) or 3D Settings for this source, this audio will play as 2D", MessageType.Error);
                     }
                 }
+                SerializedProperty instantReject = serializedObject.FindProperty("m_instantRejectOnTooDistant");
+                EditorGUILayout.PropertyField(instantReject);
             }
 
             
