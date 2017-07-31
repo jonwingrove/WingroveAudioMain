@@ -16,6 +16,8 @@ public class PooledAudioSource : MonoBehaviour {
     private float m_highPassResTotal;
     private float m_highPassFreq;
 
+    private bool m_previouslyWasEnabledHP = false;
+    private bool m_previouslyWasEnabledLP = false;    
 
     void Awake()
     {
@@ -27,16 +29,24 @@ public class PooledAudioSource : MonoBehaviour {
 
     public void SetLowPassFilter(float freq, float res)
     {
-        m_lowPassFreq = Mathf.Min(freq, m_lowPassFreq);
-        m_lowPassResTotal += res;
-        m_numLowPassFilters++;
+        // optimise out if too high...
+        if (freq < 44000)
+        {
+            m_lowPassFreq = Mathf.Min(freq, m_lowPassFreq);
+            m_lowPassResTotal += res;
+            m_numLowPassFilters++;
+        }
     }
 
     public void SetHighPassFilter(float freq, float res)
     {
-        m_highPassFreq = Mathf.Max(freq, m_highPassFreq);
-        m_highPassResTotal += res;
-        m_numHighPassFilters++;
+        // optimise out if too low...
+        if (freq > 100)
+        {
+            m_highPassFreq = Mathf.Max(freq, m_highPassFreq);
+            m_highPassResTotal += res;
+            m_numHighPassFilters++;
+        }
     }
     
     public void ResetFiltersForFrame()
@@ -54,10 +64,18 @@ public class PooledAudioSource : MonoBehaviour {
     {
         if(m_numLowPassFilters == 0)
         {
-            m_lowPassFilter.enabled = false;
+            if (m_previouslyWasEnabledLP)
+            {
+                m_lowPassFilter.enabled = false;
+            }
+            m_previouslyWasEnabledLP = false;
         }
         else
         {
+            if (!m_previouslyWasEnabledLP)
+            {
+                m_previouslyWasEnabledLP = true;
+            }
             m_lowPassFilter.enabled = true;
             m_lowPassFilter.cutoffFrequency = m_lowPassFreq;
             m_lowPassFilter.lowpassResonanceQ = m_lowPassResTotal / m_numLowPassFilters;
@@ -65,11 +83,19 @@ public class PooledAudioSource : MonoBehaviour {
 
         if (m_numHighPassFilters == 0)
         {
-            m_highPassFilter.enabled = false;
+            if (m_previouslyWasEnabledHP)
+            {
+                m_highPassFilter.enabled = false;
+            }
+            m_previouslyWasEnabledHP = false;
         }
         else
         {
-            m_highPassFilter.enabled = true;
+            if (!m_previouslyWasEnabledHP)
+            {
+                m_highPassFilter.enabled = true;
+            }
+            m_previouslyWasEnabledHP = true;
             m_highPassFilter.cutoffFrequency = m_highPassFreq;
             m_highPassFilter.highpassResonanceQ = m_highPassResTotal / m_numHighPassFilters;
         }

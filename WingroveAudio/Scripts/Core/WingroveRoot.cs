@@ -85,6 +85,7 @@ namespace WingroveAudio
         public AudioNameGroup[] m_audioNameGroups;
 
         private List<WingroveListener> m_listeners = new List<WingroveListener>();
+        private int m_listenerCount = 0;
         private List<BaseWingroveAudioSource> m_allRegisteredSources = new List<BaseWingroveAudioSource>();
         private List<WingroveMixBus> m_allMixBuses = new List<WingroveMixBus>();
         private List<InstanceLimiter> m_allInstanceLimiters = new List<InstanceLimiter>();
@@ -710,7 +711,8 @@ namespace WingroveAudio
 
         public void RegisterListener(WingroveListener listener)
         {
-            m_listeners.Add(listener);        
+            m_listeners.Add(listener);
+            m_listenerCount++;
             if(m_thisListener == null)
             {
                 m_thisListener = new GameObject("Listener");
@@ -730,19 +732,20 @@ namespace WingroveAudio
         public void UnregisterListener(WingroveListener listener)
         {
             m_listeners.Remove(listener);
+            m_listenerCount--;
             Transform newParent = null;
             if (m_listeningModel == MultipleListenerPositioningModel.Simplified)
             {
-                if (m_listeners.Count != 0)
+                if (m_listenerCount != 0)
                 {
-                    newParent = m_listeners[m_listeners.Count - 1].transform;
+                    newParent = m_listeners[m_listenerCount - 1].transform;
                 }
             }
         }
 
         public WingroveListener GetSingleListener()
         {
-            if(m_listeners.Count == 1)
+            if(m_listenerCount == 1)
             {
                 return m_listeners[0];
             }
@@ -754,8 +757,7 @@ namespace WingroveAudio
 
         Vector3 GetRelativeListeningPositionSimplified(AudioArea aa, Vector3 inPosition)
         {
-            int listenerCount = m_listeners.Count;
-            if (listenerCount == 0)
+            if (m_listenerCount == 0)
             {
                 return inPosition;
             }
@@ -787,10 +789,9 @@ namespace WingroveAudio
             }
             else
             {
-                int listenerCount = m_listeners.Count;
-                if (!m_allowMultipleListeners || listenerCount <= 1)
+                if (!m_allowMultipleListeners || m_listenerCount <= 1)
                 {
-                    if (listenerCount == 0)
+                    if (m_listenerCount == 0)
                     {
                         return inPosition;
                     }

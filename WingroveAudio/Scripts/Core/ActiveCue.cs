@@ -25,16 +25,17 @@ namespace WingroveAudio
         private Audio3DSetting m_audioSettings;
         private bool m_hasAudioSettings;
         
-        public float m_fadeT;
-        public float m_fadeSpeed;
-        CueState m_currentState;
+        private float m_fadeT;
+        private float m_fadeSpeed;
+        private CueState m_currentState;
+
+        private bool m_isPaused;
+        private int m_currentPosition;
+
+        private float m_pitch;
         
-        bool m_isPaused;
-        int m_currentPosition;
-        
-        float m_pitch;
-        
-        public WingroveRoot.AudioSourcePoolItem m_currentAudioSource;
+        private WingroveRoot.AudioSourcePoolItem m_currentAudioSource;
+        private bool m_currentAudioSourceExists;
         
         float[] m_bufferDataL;
         float[] m_bufferDataR;
@@ -44,7 +45,7 @@ namespace WingroveAudio
         private bool m_rmsRequested;
         private int m_framesAtZero = 0;
         private Vector3 m_audioPositioning;
-        private float m_audioPositioningDistance;
+        private float m_audioPositioningDistanceSqr;
         private float m_theoreticalVolumeCached;
         private int m_importanceCached;
 
@@ -58,6 +59,7 @@ namespace WingroveAudio
             m_fadeT = 0.0f;
             m_fadeSpeed = 0.0f;
             m_currentAudioSource = null;
+            m_currentAudioSourceExists = false;
             m_currentPosition = 0;
 
             m_originatorSource = originator;
@@ -113,7 +115,7 @@ namespace WingroveAudio
             m_theoreticalVolumeCached = GetTheoreticalVolume();
 
             bool queueEnableAndPlay = false;
-            if (m_currentAudioSource == null || m_currentAudioSource.m_audioSource == null)
+            if (!m_currentAudioSourceExists)
             {                
                 // don't bother stealing if we're going to be silent anyway... (optimise: don't re-get if fading out)       
                 if (m_theoreticalVolumeCached > 0 && GetState() != CueState.PlayingFadeOut)
@@ -121,11 +123,12 @@ namespace WingroveAudio
                     m_currentAudioSource = WingroveRoot.Instance.TryClaimPoolSource(this);
                     if (m_currentAudioSource != null)
                     {
+                        m_currentAudioSourceExists = true;
                         // turn off doppler for a frame or two...
                         m_currentAudioSource.m_audioSource.dopplerLevel = 0.0f;
                     }
                 }
-                if (m_currentAudioSource != null)
+                if (m_currentAudioSourceExists)
                 {
                     m_currentAudioSource.m_audioSource.clip = m_audioClipSource.GetAudioClip();
                     m_currentAudioSource.m_audioSource.loop = m_audioClipSource.GetLooping();
@@ -219,7 +222,7 @@ namespace WingroveAudio
 
             if (queueEnableAndPlay)
             {
-                if (m_currentAudioSource != null)
+                if (m_currentAudioSourceExists)
                 {
                     m_currentAudioSource.m_audioSource.timeSamples = m_currentPosition;
                     m_currentAudioSource.m_audioSource.enabled = true;
@@ -271,8 +274,9 @@ namespace WingroveAudio
                 float v3D = 1.0f;
                 if(m_hasAudioSettings)
                 {
-                    float spab = m_audioSettings.GetSpatialBlend(m_audioPositioningDistance);
-                    v3D = Mathf.Lerp(m_audioSettings.EvaluateStandard(m_audioPositioningDistance), 1.0f, spab);
+                    float distM = Mathf.Sqrt(m_audioPositioningDistanceSqr);
+                    float spab = m_audioSettings.GetSpatialBlend(distM);
+                    v3D = Mathf.Lerp(m_audioSettings.EvaluateStandard(distM), 1.0f, spab);
                 }                
                 return m_fadeT * m_audioClipSource.GetMixBusLevel() * v3D;
             }
@@ -297,8 +301,8 @@ namespace WingroveAudio
                     // update audio area                    
                     m_audioPositioning = 
                         WingroveRoot.Instance.GetRelativeListeningPosition(m_targetAudioArea, m_targetGameObject.transform.position);
-                    m_audioPositioningDistance = (WingroveRoot.Instance.GetSingleListener().transform.position - 
-                        m_audioPositioning).magnitude;
+                    m_audioPositioningDistanceSqr = (WingroveRoot.Instance.GetSingleListener().transform.position - 
+                        m_audioPositioning).sqrMagnitude;
                 }
             }
         }        
@@ -306,7 +310,7 @@ namespace WingroveAudio
         public void SetMix()
         {
             UpdatePosition();
-            if (m_currentAudioSource != null)
+            if (m_currentAudioSourceExists)
             {
                 if (!m_hasAudioSettings)
                 {
@@ -324,7 +328,7 @@ namespace WingroveAudio
                 else
                 {
                     // we have 3d settings, so place correctly & apply spatial blend
-                    float spBlend = m_audioSettings.GetSpatialBlend(m_audioPositioningDistance);
+                    float spBlend = m_audioSettings.GetSpatialBlend(m_audioPositioningDistanceSqr);
                     if (m_currentAudioSource.m_audioSource.spatialBlend != spBlend)
                     {
                         m_currentAudioSource.m_audioSource.spatialBlend = spBlend;
@@ -407,7 +411,7 @@ namespace WingroveAudio
         public void Play(float fade)
         {
             m_currentPosition = 0;
-            if (m_currentAudioSource != null)
+            if (m_currentAudioSourceExists)
             {
                 m_currentAudioSource.m_audioSource.timeSamples = 0;
             }
@@ -428,7 +432,7 @@ namespace WingroveAudio
             m_currentPosition = 0;
             m_hasDSPStartTime = true;
             m_dspStartTime = dspStartTime;
-            if (m_currentAudioSource != null)
+            if (m_currentAudioSourceExists)
             {
                 m_currentAudioSource.m_audioSource.timeSamples = 0;
             }
@@ -528,10 +532,11 @@ namespace WingroveAudio
         public void Unlink()
         {
             m_currentState = CueState.Stopped;
-            if (m_currentAudioSource != null)
+            if (m_currentAudioSourceExists)
             {
                 WingroveRoot.Instance.UnlinkSource(m_currentAudioSource);
                 m_currentAudioSource = null;
+                m_currentAudioSourceExists = false;
             }
             m_audioClipSource.RemoveUsage();
             m_audioClipSource.RePool(this);
@@ -539,10 +544,11 @@ namespace WingroveAudio
 
         public void Virtualise()
         {
-            if (m_currentAudioSource != null)
+            if (m_currentAudioSourceExists)
             {
                 WingroveRoot.Instance.UnlinkSource(m_currentAudioSource);
                 m_currentAudioSource = null;
+                m_currentAudioSourceExists = false;
             }
         }
 
@@ -550,7 +556,7 @@ namespace WingroveAudio
         {
             if (!m_isPaused)
             {
-                if (m_currentAudioSource != null)
+                if (m_currentAudioSourceExists)
                 {
                     m_currentAudioSource.m_audioSource.Pause();
                 }
@@ -563,7 +569,7 @@ namespace WingroveAudio
         {
             if (m_isPaused)
             {
-                if (m_currentAudioSource != null)
+                if (m_currentAudioSourceExists)
                 {
                     m_currentAudioSource.m_audioSource.Play();
                 }

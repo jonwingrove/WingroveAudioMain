@@ -44,10 +44,11 @@ namespace WingroveAudio
             float ab = 1 - Mathf.Clamp01((distance - m_minDistance) / (m_maxDistance - m_minDistance));
             return ab;
         }
-        public float GetSpatialBlend(float distance)
+        public float GetSpatialBlend(float distanceSquared)
         {
             if(m_useDynamicSpatialBlend)
             {
+                float distance = Mathf.Sqrt(distanceSquared);
                 float distT = (distance - m_blendNearDistance) / (m_blendFarDistance - m_blendNearDistance);
                 return Mathf.Lerp(m_blendValueNear, m_blendValueFar, Mathf.Clamp01(distT));
             }

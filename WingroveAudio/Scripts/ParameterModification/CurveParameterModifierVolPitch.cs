@@ -13,6 +13,11 @@ namespace WingroveAudio
         public AnimationCurve m_volumeCurve = new AnimationCurve(new Keyframe[] { new Keyframe(0, 1.0f), new Keyframe(1, 1.0f) });
         public AnimationCurve m_pitchCurve = new AnimationCurve(new Keyframe[] { new Keyframe(0, 1.0f), new Keyframe(1, 1.0f) });
 
+        [SerializeField]
+        private bool m_doVolumeCurve = true;
+        [SerializeField]
+        private bool m_doPitchCurve = true;
+
         private int m_cachedParameter = 0;
         private WingroveRoot.CachedParameterValue m_cachedParameterValue;
         private bool m_hasCachedGlobalVol = false;
@@ -35,6 +40,10 @@ namespace WingroveAudio
 
         public override float GetVolumeMultiplier(int linkedObjectId)
         {
+            if(!m_doVolumeCurve)
+            {
+                return 1.0f;
+            }
             if(m_cachedParameter == 0)
             {
                 m_cachedParameter = WingroveRoot.Instance.GetParameterId(m_parameter);
@@ -70,6 +79,10 @@ namespace WingroveAudio
 
         public override float GetPitchMultiplier(int linkedObjectId)
         {
+            if(!m_doPitchCurve)
+            {
+                return 1.0f;
+            }
             if (m_cachedParameter == 0)
             {
                 m_cachedParameter = WingroveRoot.Instance.GetParameterId(m_parameter);
