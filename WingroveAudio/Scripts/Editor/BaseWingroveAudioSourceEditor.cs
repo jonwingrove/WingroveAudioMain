@@ -48,19 +48,21 @@ namespace WingroveAudio
             {
                 SerializedProperty settingsProp = serializedObject.FindProperty("m_specify3DSettings");
                 EditorGUILayout.PropertyField(settingsProp);
-                if (WingroveRoot.Instance == null)
+                if (WingroveRoot.InstanceEditor == null)
                 {
                     EditorGUILayout.HelpBox("WingroveRoot not found!", MessageType.Error);
                 }
                 else
                 {
-                    if(WingroveRoot.Instance.GetDefault3DSettings() == null && settingsProp.objectReferenceValue == null)
+                    if(WingroveRoot.InstanceEditor.GetDefault3DSettings() == null && settingsProp.objectReferenceValue == null)
                     {
                         EditorGUILayout.HelpBox("Without default 3D Settings (on WingroveRoot) or 3D Settings for this source, this audio will play as 2D", MessageType.Error);
                     }
                 }
                 SerializedProperty instantReject = serializedObject.FindProperty("m_instantRejectOnTooDistant");
+                SerializedProperty instantRejectHalf = serializedObject.FindProperty("m_instantRejectHalfDistanceFewVoices");
                 EditorGUILayout.PropertyField(instantReject);
+                EditorGUILayout.PropertyField(instantRejectHalf);
             }
 
             

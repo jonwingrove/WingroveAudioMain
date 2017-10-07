@@ -13,7 +13,7 @@ namespace WingroveAudio
 
         public static void DBLabel(string prefix, float amt)
         {
-            if (WingroveRoot.Instance.UseDBScale)
+            if (WingroveRoot.InstanceEditor.UseDBScale)
             {
                 float dbMix = 20 * Mathf.Log10(amt);
                 if (dbMix == 0)

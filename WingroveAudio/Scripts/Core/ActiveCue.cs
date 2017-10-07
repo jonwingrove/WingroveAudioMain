@@ -18,6 +18,7 @@ namespace WingroveAudio
         private GameObject m_originatorSource;
         private BaseWingroveAudioSource m_audioClipSource;
         private GameObject m_targetGameObject;
+        private bool m_hasTargetGameObject;
         private int m_targetGameObjectId;
         private AudioArea m_targetAudioArea;
         private double m_dspStartTime = 0.0f;
@@ -48,6 +49,7 @@ namespace WingroveAudio
         private float m_audioPositioningDistanceSqr;
         private float m_theoreticalVolumeCached;
         private int m_importanceCached;
+        private bool m_hasAudioArea;
 
         public void Initialise(GameObject originator, BaseWingroveAudioSource bas, GameObject target)
         {
@@ -67,7 +69,14 @@ namespace WingroveAudio
             if (m_targetGameObject != null)
             {
                 m_targetAudioArea = target.GetComponent<AudioArea>();
+                m_hasAudioArea = m_targetAudioArea != null;
                 m_targetGameObjectId = target.GetInstanceID();
+                m_hasTargetGameObject = true;
+            }
+            else
+            {
+                m_hasTargetGameObject = false;
+                m_targetGameObjectId = 0;
             }
             m_audioClipSource = bas;
             m_pitch = m_audioClipSource.GetNewPitch();
@@ -141,7 +150,9 @@ namespace WingroveAudio
                 {
                     if (!m_isPaused)
                     {
-                        m_currentPosition += (int)(WingroveRoot.GetDeltaTime() * m_audioClipSource.GetAudioClip().frequency * GetMixPitch());
+                        // risky-ish optimisation removing mix pitch
+                        //m_currentPosition += (int)(WingroveRoot.GetDeltaTime() * m_audioClipSource.GetAudioClip().frequency * GetMixPitch());
+                        m_currentPosition += (int)(WingroveRoot.GetDeltaTime() * m_audioClipSource.GetAudioClip().frequency);
                         if (m_currentPosition > m_audioClipSource.GetAudioClip().samples)
                         {
                             if (m_audioClipSource.GetLooping())
@@ -218,6 +229,11 @@ namespace WingroveAudio
                 }
             }
 
+            if(m_hasTargetGameObject == true && m_targetGameObject == null)
+            {
+                m_hasTargetGameObject = false;
+            }
+
             SetMix();
 
             if (queueEnableAndPlay)
@@ -275,8 +291,7 @@ namespace WingroveAudio
                 if(m_hasAudioSettings)
                 {
                     float distM = Mathf.Sqrt(m_audioPositioningDistanceSqr);
-                    float spab = m_audioSettings.GetSpatialBlend(distM);
-                    v3D = Mathf.Lerp(m_audioSettings.EvaluateStandard(distM), 1.0f, spab);
+                    v3D = m_audioSettings.EvaluateStandard(distM);
                 }                
                 return m_fadeT * m_audioClipSource.GetMixBusLevel() * v3D;
             }
@@ -296,12 +311,20 @@ namespace WingroveAudio
         {
             if (m_hasAudioSettings)
             {
-                if (m_targetGameObject != null)
+                if (m_hasTargetGameObject)
                 {
-                    // update audio area                    
-                    m_audioPositioning = 
-                        WingroveRoot.Instance.GetRelativeListeningPosition(m_targetAudioArea, m_targetGameObject.transform.position);
-                    m_audioPositioningDistanceSqr = (WingroveRoot.Instance.GetSingleListener().transform.position - 
+                    // update audio area 
+                    if (!m_hasAudioArea)
+                    {
+                        m_audioPositioning =
+                            WingroveRoot.Instance.GetRelativeListeningPosition(m_targetGameObject.transform.position);
+                    }
+                    else
+                    {
+                        m_audioPositioning =
+                            WingroveRoot.Instance.GetRelativeListeningPosition(m_targetAudioArea, m_targetGameObject.transform.position);
+                    }
+                    m_audioPositioningDistanceSqr = (WingroveRoot.Instance.GetSingleListener().transform.position -
                         m_audioPositioning).sqrMagnitude;
                 }
             }
@@ -337,15 +360,25 @@ namespace WingroveAudio
                     {
                         m_currentAudioSource.m_audioSource.spatialize = true;
                     }
-                    if (m_targetGameObject != null)
+                    if (m_hasTargetGameObject)
                     {                        
                         m_currentAudioSource.m_audioSource.transform.position = m_audioPositioning;
                     }
                 }
                 // apply the full mix, including custom rolloff
+                float paramVals = 0;
+                float mixPitch = 1.0f;
+
+                if (m_theoreticalVolumeCached > 0.0001f) 
+                {
+                    paramVals = m_audioClipSource.GetVolumeModifier(m_targetGameObjectId);
+                    mixPitch = GetMixPitch();
+                }
+
                 m_currentAudioSource.m_audioSource.volume = m_fadeT * m_audioClipSource.GetMixBusLevel()
-                        * m_audioClipSource.GetVolumeModifier(m_targetGameObjectId);
-                m_currentAudioSource.m_audioSource.pitch = GetMixPitch();
+                        * paramVals;
+                m_currentAudioSource.m_audioSource.pitch = mixPitch;
+                    
                 float targDoppler = m_hasAudioSettings ? m_audioSettings.GetDopplerLevel() : 1.0f;
                 if (m_currentAudioSource.m_audioSource.dopplerLevel < targDoppler)
                 {

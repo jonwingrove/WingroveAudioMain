@@ -26,6 +26,9 @@ namespace WingroveAudio
         private bool m_hasCachedGlobalPitch = false;
         private System.Int64 m_lastCachedNPitch = 0;
 
+        private float m_lastCachedNullParamValVol = 0;
+        private float m_lastCachedNullParamValPitch = 0;
+
         private float m_lastCachedVolResult = 1.0f;
         private float m_lastCachedPitchResult = 1.0f;
 
@@ -56,11 +59,11 @@ namespace WingroveAudio
             {
                 if(m_cachedParameterValue.m_isGlobalValue)
                 {
-                    if(m_lastCachedNVol != m_cachedParameterValue.m_lastGlobalValueN || !m_hasCachedGlobalVol)
-                    {
-                        m_hasCachedGlobalVol = true;
-                        m_lastCachedNVol = m_cachedParameterValue.m_lastGlobalValueN;
+                    if (m_lastCachedNullParamValVol != m_cachedParameterValue.m_valueNull || !m_hasCachedGlobalVol)
+                    {                                               
                         m_lastCachedVolResult = m_volumeCurve.Evaluate(m_cachedParameterValue.m_valueNull);
+                        m_hasCachedGlobalVol = true;
+                        m_lastCachedNullParamValVol = m_cachedParameterValue.m_valueNull;
                     }
                     return m_lastCachedVolResult;
                 }
@@ -95,11 +98,11 @@ namespace WingroveAudio
             {
                 if (m_cachedParameterValue.m_isGlobalValue)
                 {
-                    if (m_lastCachedNPitch != m_cachedParameterValue.m_lastGlobalValueN || !m_hasCachedGlobalPitch)
+                    if (m_lastCachedNullParamValPitch != m_cachedParameterValue.m_valueNull || !m_hasCachedGlobalPitch)
                     {
-                        m_hasCachedGlobalPitch = true;
-                        m_lastCachedNPitch = m_cachedParameterValue.m_lastGlobalValueN;
                         m_lastCachedPitchResult = m_pitchCurve.Evaluate(m_cachedParameterValue.m_valueNull);
+                        m_hasCachedGlobalPitch = true;
+                        m_lastCachedNullParamValPitch = m_cachedParameterValue.m_valueNull;
                     }
                     return m_lastCachedPitchResult;
                 }

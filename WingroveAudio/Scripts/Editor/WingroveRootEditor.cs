@@ -20,11 +20,6 @@ namespace WingroveAudio
             EditorGUILayout.PropertyField(serializedObject.FindProperty("m_useDecibelScale"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("m_allowMultipleListeners"), new GUIContent("Multiple listener (split scren) experimental support"));
 
-            if(serializedObject.FindProperty("m_allowMultipleListeners").boolValue)
-            {
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("m_listeningModel"), new GUIContent("Multiple listener model"));
-            }
-
             EditorGUILayout.PropertyField(serializedObject.FindProperty("m_dontDestroyOnLoad"));
            
             GUILayout.EndVertical();

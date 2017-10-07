@@ -29,14 +29,14 @@ namespace WingroveAudio
         {
             this.maxSize = new Vector2(400, 2000);
             this.minSize = new Vector3(400, 100);
-            if (WingroveRoot.Instance != null)
+            if (WingroveRoot.InstanceEditor != null)
             {
                 GUILayout.BeginHorizontal();
                 m_showParameters = GUILayout.Toggle(m_showParameters, "Show Parameters");
                 GUILayout.EndHorizontal();
                 if (m_showParameters)
                 {
-                    Dictionary<int, WingroveRoot.CachedParameterValue> all = WingroveRoot.Instance.GetAllParams();
+                    Dictionary<int, WingroveRoot.CachedParameterValue> all = WingroveRoot.InstanceEditor.GetAllParams();
                     foreach(KeyValuePair<int, WingroveRoot.CachedParameterValue> cpv in all)
                     {
                         
@@ -45,14 +45,14 @@ namespace WingroveAudio
                         if(cpv.Value.m_isGlobalValue)
                         {
                             GUILayout.BeginHorizontal();
-                            GUILayout.Label(WingroveRoot.Instance.GetParamName(cpv.Key));
+                            GUILayout.Label(WingroveRoot.InstanceEditor.GetParamName(cpv.Key));
                             GUILayout.Label(string.Format("{0:0.00}", cpv.Value.m_valueNull));
                             GUILayout.EndHorizontal();
                         }
                         else
                         {
                             GUILayout.BeginHorizontal();
-                            GUILayout.Label(WingroveRoot.Instance.GetParamName(cpv.Key));
+                            GUILayout.Label(WingroveRoot.InstanceEditor.GetParamName(cpv.Key));
                             foreach (KeyValuePair<int, float> dn in cpv.Value.m_valueObject)
                             {
                                 GameObject ro = cpv.Value.m_nullCheckDictionary[dn.Key];
@@ -70,7 +70,7 @@ namespace WingroveAudio
                 else
                 {
                     m_follow = EditorGUILayout.Toggle("Snap to end", m_follow);
-                    List<WingroveRoot.LoggedEvent> eventList = WingroveRoot.Instance.GetLogList();
+                    List<WingroveRoot.LoggedEvent> eventList = WingroveRoot.InstanceEditor.GetLogList();
                     m_scrollPos = EditorGUILayout.BeginScrollView(m_scrollPos);
                     GUILayout.BeginVertical(GUILayout.Width(400));
                     foreach (WingroveRoot.LoggedEvent loggedEvent in eventList)

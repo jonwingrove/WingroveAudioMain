@@ -23,7 +23,7 @@ namespace WingroveAudio
                 GUISkin oldSkin = GUI.skin;
                 Rect topRect = new Rect(position);
                 GUI.Label(topRect, label);
-                GUI.skin = WingroveRoot.Instance == null ? oldSkin : WingroveRoot.Instance.GetSkin();
+                GUI.skin = WingroveRoot.InstanceEditor == null ? oldSkin : WingroveRoot.InstanceEditor.GetSkin();
 
                 Rect centre = new Rect(toFill);
                 centre.xMin += 30;
@@ -37,7 +37,7 @@ namespace WingroveAudio
 
                 toFill.yMin += 116;
 
-                if (WingroveRoot.Instance == null || WingroveRoot.Instance.UseDBScale)
+                if (WingroveRoot.InstanceEditor == null || WingroveRoot.InstanceEditor.UseDBScale)
                 {
                     float dbMix = 20 * Mathf.Log10(amt);
                     if (dbMix == 0)
@@ -76,7 +76,7 @@ namespace WingroveAudio
                 pos.xMax += width;
                 pos.xMin += width;
 
-                if (WingroveRoot.Instance == null || WingroveRoot.Instance.UseDBScale)
+                if (WingroveRoot.InstanceEditor == null || WingroveRoot.InstanceEditor.UseDBScale)
                 {
                     float dbMix = 20 * Mathf.Log10(amt);
                     if (dbMix == 0)

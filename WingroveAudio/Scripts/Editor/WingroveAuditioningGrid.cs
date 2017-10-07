@@ -21,16 +21,16 @@ namespace WingroveAudio
             title = "Wingove Auditioning";
             if (Application.isPlaying)
             {
-                if (WingroveRoot.Instance != null)
+                if (WingroveRoot.InstanceEditor != null)
                 {
-                    if (WingroveRoot.Instance.m_audioNameGroups == null || WingroveRoot.Instance.m_audioNameGroups.Length == 0)
+                    if (WingroveRoot.InstanceEditor.m_audioNameGroups == null || WingroveRoot.InstanceEditor.m_audioNameGroups.Length == 0)
                     {
                         EditorGUILayout.HelpBox("WingroveRoot does not have any AudioNameGroups!", MessageType.Error);
                     }
                     else
                     {
                         List<GUIContent> displayOptions = new List<GUIContent>();
-                        foreach (AudioNameGroup evg in WingroveRoot.Instance.m_audioNameGroups)
+                        foreach (AudioNameGroup evg in WingroveRoot.InstanceEditor.m_audioNameGroups)
                         {
                             displayOptions.Add(new GUIContent(evg.name));
                         }
@@ -39,11 +39,11 @@ namespace WingroveAudio
 
                         int x = 0;
                         EditorGUILayout.BeginHorizontal();
-                        foreach (string ev in WingroveRoot.Instance.m_audioNameGroups[m_bankIndex].GetEvents())
+                        foreach (string ev in WingroveRoot.InstanceEditor.m_audioNameGroups[m_bankIndex].GetEvents())
                         {
                             if (GUILayout.Button(ev))
                             {
-                                WingroveRoot.Instance.PostEvent(ev);
+                                WingroveRoot.InstanceEditor.PostEvent(ev);
                             }
                             ++x;
                             if (x == 5)

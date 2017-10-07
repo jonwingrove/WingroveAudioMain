@@ -28,20 +28,20 @@ namespace WingroveAudio
             title = "Wingrove Mixer";
             minSize = new Vector2(2, 460);
             maxSize = new Vector2(4000, 460);
-            if (WingroveRoot.Instance == null)
+            if (WingroveRoot.InstanceEditor == null)
             {
                 GUILayout.Label("Wingrove Root not found. Create your audio hierarchy.");
             }
             else
             {
-                UnityEngine.Object[] mixBuses = WingroveRoot.Instance.GetComponentsInChildren<WingroveMixBus>();
+                UnityEngine.Object[] mixBuses = WingroveRoot.InstanceEditor.GetComponentsInChildren<WingroveMixBus>();
                 if (mixBuses.Length == 0)
                 {
                     GUILayout.Label("No active mix buses found. Add some mix buses.");
                 }
                 else
                 {
-                    WingroveRoot.Instance.UseDBScale = EditorGUILayout.Toggle("Mix in dB", WingroveRoot.Instance.UseDBScale);
+                    WingroveRoot.InstanceEditor.UseDBScale = EditorGUILayout.Toggle("Mix in dB", WingroveRoot.InstanceEditor.UseDBScale);
                     m_scrollPos = GUILayout.BeginScrollView(m_scrollPos);
                     GUILayout.BeginHorizontal(GUILayout.Height(320));
                     GUILayout.Space(50);

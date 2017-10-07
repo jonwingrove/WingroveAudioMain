@@ -17,7 +17,12 @@ public class PooledAudioSource : MonoBehaviour {
     private float m_highPassFreq;
 
     private bool m_previouslyWasEnabledHP = false;
-    private bool m_previouslyWasEnabledLP = false;    
+    private bool m_previouslyWasEnabledLP = false;
+
+    private float m_previousLowFreq = 999999;
+    private float m_previousHighFreq = 999999;
+    private float m_previousLowQ = 99999;
+    private float m_previousHighQ = 99999;
 
     void Awake()
     {
@@ -77,8 +82,18 @@ public class PooledAudioSource : MonoBehaviour {
                 m_previouslyWasEnabledLP = true;
             }
             m_lowPassFilter.enabled = true;
-            m_lowPassFilter.cutoffFrequency = m_lowPassFreq;
-            m_lowPassFilter.lowpassResonanceQ = m_lowPassResTotal / m_numLowPassFilters;
+            if (m_previousLowFreq != m_lowPassFreq)
+            {
+                m_lowPassFilter.cutoffFrequency = m_lowPassFreq;
+            }
+            m_previousLowFreq = m_lowPassFreq;
+            float lowQ = m_lowPassResTotal / m_numLowPassFilters;
+            if (m_previousLowQ != lowQ)
+            {
+                m_lowPassFilter.lowpassResonanceQ = lowQ;
+            }
+            m_previousLowQ = lowQ;
+
         }
 
         if (m_numHighPassFilters == 0)
@@ -96,8 +111,17 @@ public class PooledAudioSource : MonoBehaviour {
                 m_highPassFilter.enabled = true;
             }
             m_previouslyWasEnabledHP = true;
-            m_highPassFilter.cutoffFrequency = m_highPassFreq;
-            m_highPassFilter.highpassResonanceQ = m_highPassResTotal / m_numHighPassFilters;
+            if (m_previousHighFreq != m_highPassFreq)
+            {
+                m_highPassFilter.cutoffFrequency = m_highPassFreq;
+            }
+            m_previousHighFreq = m_highPassFreq;
+            float highQ = m_highPassResTotal / m_numHighPassFilters;
+            if (m_previousHighQ != highQ)
+            {
+                m_highPassFilter.highpassResonanceQ = highQ;
+            }
+            m_previousHighQ = highQ;
         }
     }
 }

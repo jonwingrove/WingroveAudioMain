@@ -28,7 +28,7 @@ namespace WingroveAudio
         [SerializeField]
         private float m_delay = 0.0f;
         [SerializeField]
-        private int m_noRepeatsMemory = 1;
+        private int m_noRepeatsMemory = 1;        
 
         private BaseWingroveAudioSource[] m_audioSources;
 
@@ -43,6 +43,11 @@ namespace WingroveAudio
             {
                 m_availableRandoms.Add(index);
             }
+        }
+
+        public void CancelDelay()
+        {
+            StopAllCoroutines();
         }
 
         public override string[] GetEvents()

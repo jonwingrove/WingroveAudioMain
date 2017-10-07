@@ -29,16 +29,16 @@ namespace WingroveAudio
                         
 
             string testString = eventProperty.stringValue;
-            if (WingroveRoot.Instance != null)
+            if (WingroveRoot.InstanceEditor != null)
             {
-                if (WingroveRoot.Instance.m_audioNameGroups == null || WingroveRoot.Instance.m_audioNameGroups.Length == 0)
+                if (WingroveRoot.InstanceEditor.m_audioNameGroups == null || WingroveRoot.InstanceEditor.m_audioNameGroups.Length == 0)
                 {
                     EditorGUI.HelpBox(position, "WingroveRoot does not have any AudioNameGroups!", MessageType.Error);
                     position = Next(position);
                 }
                 else
                 {
-                    int inWhichBank = WingroveRoot.Instance.FindEvent(testString);
+                    int inWhichBank = WingroveRoot.InstanceEditor.FindEvent(testString);
                     if (bankIndex == -1 && inWhichBank != -1)
                     {
                         bankIndex = inWhichBank;
@@ -71,7 +71,7 @@ namespace WingroveAudio
                     }
 
                     List<GUIContent> displayOptions = new List<GUIContent>();
-                    foreach (AudioNameGroup evg in WingroveRoot.Instance.m_audioNameGroups)
+                    foreach (AudioNameGroup evg in WingroveRoot.InstanceEditor.m_audioNameGroups)
                     {
                         if (evg != null)
                         {
@@ -92,9 +92,9 @@ namespace WingroveAudio
                     List<GUIContent> eventDropdown = new List<GUIContent>();
                     eventDropdown.Add(new GUIContent(testString));
                     int selected = 0;
-                    if (WingroveRoot.Instance.m_audioNameGroups[bankIndex] != null)
+                    if (WingroveRoot.InstanceEditor.m_audioNameGroups[bankIndex] != null)
                     {
-                        foreach (string evName in WingroveRoot.Instance.m_audioNameGroups[bankIndex].GetEvents())
+                        foreach (string evName in WingroveRoot.InstanceEditor.m_audioNameGroups[bankIndex].GetEvents())
                         {
                             eventDropdown.Add(new GUIContent(evName));
                         }
@@ -103,16 +103,16 @@ namespace WingroveAudio
                     position = Next(position);
                     if (selected != 0)
                     {
-                        testString = WingroveRoot.Instance.m_audioNameGroups[bankIndex].GetEvents()[selected - 1];
+                        testString = WingroveRoot.InstanceEditor.m_audioNameGroups[bankIndex].GetEvents()[selected - 1];
                     }
 
                     if (offerAdd)
                     {
                         if (GUI.Button(position, "Add \"" + testString + "\" to bank \"" +
-                            WingroveRoot.Instance.m_audioNameGroups[bankIndex] + "\""))
+                            WingroveRoot.InstanceEditor.m_audioNameGroups[bankIndex] + "\""))
                         {
-                            WingroveRoot.Instance.m_audioNameGroups[bankIndex].AddEvent(testString);
-                            EditorUtility.SetDirty(WingroveRoot.Instance.m_audioNameGroups[bankIndex]);
+                            WingroveRoot.InstanceEditor.m_audioNameGroups[bankIndex].AddEvent(testString);
+                            EditorUtility.SetDirty(WingroveRoot.InstanceEditor.m_audioNameGroups[bankIndex]);
                         }
                         position = Next(position);
                     }                    

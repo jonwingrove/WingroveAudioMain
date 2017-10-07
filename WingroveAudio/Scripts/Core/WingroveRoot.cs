@@ -16,15 +16,6 @@ namespace WingroveAudio
         [SerializeField]
         private bool m_dontDestroyOnLoad = false;
 
-        public enum MultipleListenerPositioningModel
-        {
-            Simplified,
-            InverseSquareDistanceWeighted
-        }
-
-        [SerializeField]
-        private MultipleListenerPositioningModel m_listeningModel = MultipleListenerPositioningModel.InverseSquareDistanceWeighted;
-
         private GUISkin m_editorSkin;
         private static bool s_hasInstance;
 
@@ -32,13 +23,6 @@ namespace WingroveAudio
         {
             get
             {
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                {
-                    // really slow, but we only do in editor mode...
-                    s_hasInstance = s_instance != null;
-                }
-#endif
                 if (!s_hasInstance)
                 {
                     s_instance = (WingroveRoot)GameObject.FindObjectOfType(typeof(WingroveRoot));
@@ -46,6 +30,19 @@ namespace WingroveAudio
                     {
                         s_hasInstance = true;
                     }
+                }
+                return s_instance;
+            }
+        }
+
+
+        public static WingroveRoot InstanceEditor
+        {
+            get
+            {
+                if (s_instance == null)
+                {
+                    s_instance = (WingroveRoot)GameObject.FindObjectOfType(typeof(WingroveRoot));                    
                 }
                 return s_instance;
             }
@@ -96,7 +93,7 @@ namespace WingroveAudio
             public Dictionary<int, float> m_valueObject = new Dictionary<int, float>();
             public Dictionary<int, GameObject> m_nullCheckDictionary = new Dictionary<int, GameObject>();            
             public bool m_isGlobalValue;
-            public System.Int64 m_lastGlobalValueN = 0;
+            public System.Int64 m_lastNonGlobalValueN = 0;
         }
 		
 		class ParameterValues
@@ -108,6 +105,7 @@ namespace WingroveAudio
         }
 		ParameterValues m_values = new ParameterValues();
         private GameObject m_thisListener;
+        private int m_cachedCurrentVoices = 0;
 
 #if UNITY_EDITOR
         public class LoggedEvent
@@ -119,7 +117,7 @@ namespace WingroveAudio
         }
 
         private List<LoggedEvent> m_loggedEvents = new List<LoggedEvent>();
-        private int m_maxEvents = 50;
+        private int m_maxEvents = 50;        
         private double m_startTime;        
 
         public void LogEvent(string eventName, GameObject linkedObject)
@@ -393,8 +391,7 @@ namespace WingroveAudio
                 m_values.m_parameterValues[parameter] = cpv;
                 m_values.m_parameterValuesFast.Add(cpv);
             }
-            cpv.m_valueNull = setValue;
-            cpv.m_lastGlobalValueN++;
+            cpv.m_valueNull = setValue;            
             cpv.m_isGlobalValue = true;
 		}
 
@@ -410,6 +407,7 @@ namespace WingroveAudio
             }
             cpv.m_valueObject[gameObjectId] = setValue;
             cpv.m_nullCheckDictionary[gameObjectId] = go;
+            cpv.m_lastNonGlobalValueN++;
             cpv.m_isGlobalValue = false;
 		}
 
@@ -684,6 +682,15 @@ namespace WingroveAudio
                 il.ResetFrameFlags();
             }
 
+            m_cachedCurrentVoices = 0;
+            foreach (AudioSourcePoolItem aspi in m_audioSourcePool)
+            {
+                if(aspi.m_user != null)
+                {
+                    m_cachedCurrentVoices++;
+                }
+            }
+
             m_rmsFrame++;
             if (m_rmsFrame >= m_calculateRMSIntervalFrames)
             {
@@ -709,6 +716,25 @@ namespace WingroveAudio
             return (float)m_dspDeltaTime;
         }
 
+        public int GetCurrentVoices()
+        {
+            return m_cachedCurrentVoices;
+        }
+
+        public int GetMaxVoices()
+        {
+#if UNITY_SWITCH
+            return 32;
+#else
+            return m_audioSourcePoolSize;
+#endif
+        }
+
+        public bool IsCloseToMax()
+        {
+            return m_cachedCurrentVoices > m_audioSourcePoolSize - 8;
+        }
+
         public void RegisterListener(WingroveListener listener)
         {
             m_listeners.Add(listener);
@@ -720,13 +746,10 @@ namespace WingroveAudio
                 m_thisListener.AddComponent<AudioListener>();
                 m_thisListener.transform.localPosition = m_listenerOffset;
             }
-            if(m_listeningModel == MultipleListenerPositioningModel.Simplified)
-            {
-                m_thisListener.transform.parent = listener.transform;
-                m_thisListener.transform.localPosition = Vector3.zero;
-                m_thisListener.transform.localRotation = Quaternion.identity;
-                m_thisListener.transform.localScale = Vector3.one;
-            }
+            m_thisListener.transform.parent = listener.transform;
+            m_thisListener.transform.localPosition = Vector3.zero;
+            m_thisListener.transform.localRotation = Quaternion.identity;
+            m_thisListener.transform.localScale = Vector3.one;
         }
 
         public void UnregisterListener(WingroveListener listener)
@@ -734,12 +757,9 @@ namespace WingroveAudio
             m_listeners.Remove(listener);
             m_listenerCount--;
             Transform newParent = null;
-            if (m_listeningModel == MultipleListenerPositioningModel.Simplified)
+            if (m_listenerCount != 0)
             {
-                if (m_listenerCount != 0)
-                {
-                    newParent = m_listeners[m_listenerCount - 1].transform;
-                }
+                newParent = m_listeners[m_listenerCount - 1].transform;
             }
         }
 
@@ -755,13 +775,13 @@ namespace WingroveAudio
             }
         }
 
-        Vector3 GetRelativeListeningPositionSimplified(AudioArea aa, Vector3 inPosition)
+        public Vector3 GetRelativeListeningPosition(Vector3 inPosition)
         {
-            if (m_listenerCount == 0)
-            {
-                return inPosition;
-            }
+            return inPosition;
+        }
 
+        public Vector3 GetRelativeListeningPosition(AudioArea aa, Vector3 inPosition)
+        {
             if (aa != null)
             {
                 inPosition = aa.GetListeningPosition(m_listeners[0].transform.position, inPosition);
@@ -777,70 +797,6 @@ namespace WingroveAudio
             else
             {
                 return inPosition;
-            }
-
-        }
-
-        public Vector3 GetRelativeListeningPosition(AudioArea aa, Vector3 inPosition)
-        {
-            if (m_listeningModel == MultipleListenerPositioningModel.Simplified)
-            {
-                return GetRelativeListeningPositionSimplified(aa, inPosition);
-            }
-            else
-            {
-                if (!m_allowMultipleListeners || m_listenerCount <= 1)
-                {
-                    if (m_listenerCount == 0)
-                    {
-                        return inPosition;
-                    }
-
-                    if (aa != null)
-                    {
-                        inPosition = aa.GetListeningPosition(m_listeners[0].transform.position, inPosition);
-                        // the matrix inaccuracies of transforming a position at the listener
-                        // to essentially the same place cause a weird flickering sound- so let's just return V3.zero
-                        if (inPosition == m_listeners[0].transform.position)
-                        {
-                            return Vector3.zero;
-                        }
-                        else
-                        {
-                            return m_listeners[0].transform.worldToLocalMatrix * new Vector4(inPosition.x, inPosition.y, inPosition.z, 1.0f);
-                        }
-                    }
-                    else
-                    {
-                        return m_listeners[0].transform.worldToLocalMatrix * new Vector4(inPosition.x, inPosition.y, inPosition.z, 1.0f);
-                    }
-                }
-                else
-                {
-                    if (m_listeningModel == MultipleListenerPositioningModel.InverseSquareDistanceWeighted)
-                    {
-                        float totalWeight = 0;
-                        Vector3 totalPosition = Vector3.zero;
-                        foreach (WingroveListener listener in m_listeners)
-                        {
-                            Vector3 dist = inPosition - listener.transform.position;
-                            if (dist.magnitude == 0)
-                            {
-                                // early out if one is right here
-                                return Vector3.zero;
-                            }
-                            else
-                            {
-                                float weight = 1 / (dist.magnitude * dist.magnitude);
-                                totalWeight += weight;
-                                totalPosition += (Vector3)(listener.transform.worldToLocalMatrix * new Vector4(inPosition.x, inPosition.y, inPosition.z, 1.0f)) * weight;
-                            }
-                        }
-                        totalPosition /= totalWeight;
-                        return totalPosition;
-                    }
-                    return Vector3.zero;
-                }
             }
         }
     }

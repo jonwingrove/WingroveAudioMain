@@ -28,7 +28,9 @@ namespace WingroveAudio
         private bool m_is3DSound = false;
         [SerializeField]
         private bool m_instantRejectOnTooDistant;
-        
+        [SerializeField]
+        private bool m_instantRejectHalfDistanceFewVoices;
+
         [SerializeField]
         private Audio3DSetting m_specify3DSettings = null;
 
@@ -347,10 +349,16 @@ namespace WingroveAudio
                         if (gameObject != null)
                         {
                             Vector3 pos =
-                                WingroveRoot.Instance.GetRelativeListeningPosition(null, target.transform.position);
+                                WingroveRoot.Instance.GetRelativeListeningPosition(target.transform.position);
                             float dist = (WingroveRoot.Instance.GetSingleListener().transform.position -
                                 pos).magnitude;
-                            if(dist > Get3DSettings().GetMaxDistance())
+                            float maxDist = Get3DSettings().GetMaxDistance();
+                            if (dist > maxDist)
+                            {
+                                rejected = true;
+                            }
+                            else if(m_instantRejectHalfDistanceFewVoices && dist > maxDist * 0.5f
+                                && WingroveRoot.Instance.IsCloseToMax())
                             {
                                 rejected = true;
                             }

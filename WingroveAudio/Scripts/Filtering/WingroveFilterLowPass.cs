@@ -24,11 +24,12 @@ namespace WingroveAudio
 
 
         private int m_cachedParameterValue = 0;
+        private WingroveRoot.CachedParameterValue m_cachedParameterValueActual;
 
         private bool m_hasEverCalculated;
         private float m_previousDt = 0;
         private float m_previousFilter;
-        private float m_previousResonance;
+        private float m_previousResonance;        
 
         public override void UpdateFor(PooledAudioSource playingSource, int linkedObjectId)
         {
@@ -36,9 +37,26 @@ namespace WingroveAudio
             {
                 m_cachedParameterValue = WingroveRoot.Instance.GetParameterId(m_filterParameterController);
             }
-            float dT = Mathf.Clamp01(WingroveRoot.Instance.GetParameterForGameObject(m_cachedParameterValue, linkedObjectId));
+            else if(m_cachedParameterValueActual == null)
+            {
+                m_cachedParameterValueActual = WingroveRoot.Instance.GetParameter(m_cachedParameterValue);
+            }
+
             float filter = m_previousFilter;
             float resonance = m_previousResonance;
+            float dT = 0.0f;
+            if (m_cachedParameterValueActual != null)
+            {
+                if(m_cachedParameterValueActual.m_isGlobalValue)
+                {
+                    dT = m_cachedParameterValueActual.m_valueNull;
+                }
+                else
+                {
+                    m_cachedParameterValueActual.m_valueObject.TryGetValue(linkedObjectId, out dT);
+                }
+            }
+
             if (dT != m_previousDt || !m_hasEverCalculated)
             {
                 if (m_smoothStep)
@@ -57,7 +75,9 @@ namespace WingroveAudio
                 m_previousDt = dT;
             }
 
-            playingSource.SetLowPassFilter(filter, resonance);            
+            playingSource.SetLowPassFilter(filter, resonance);
+
+
         }
 
     }
