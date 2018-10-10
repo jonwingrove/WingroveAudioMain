@@ -26,7 +26,10 @@ namespace WingroveAudio
         {            
             foreach(EventReceiveAction era in m_toCancel)
             {
-                era.CancelDelay();
+                if (era != null)
+                {
+                    era.CancelDelay();
+                }
             }
         }
 
@@ -34,7 +37,21 @@ namespace WingroveAudio
         {
             foreach (EventReceiveAction era in m_toCancel)
             {
-                era.CancelDelay();
+                if (era != null)
+                {
+                    era.CancelDelay();
+                }
+            }
+        }
+
+        public override void PerformAction(string eventName, GameObject targetObject, AudioArea aa, List<ActiveCue> cuesOut)
+        {
+            foreach (EventReceiveAction era in m_toCancel)
+            {
+                if (era != null)
+                {
+                    era.CancelDelay();
+                }
             }
         }
     }

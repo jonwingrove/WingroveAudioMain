@@ -156,6 +156,11 @@ namespace WingroveAudio
         {
             PerformInternal(eventName);
         }
+
+        public override void PerformAction(string eventName, GameObject targetObject, AudioArea aa, List<ActiveCue> cuesOut)
+        {
+            PerformInternal(eventName);
+        }
     }
 
 }

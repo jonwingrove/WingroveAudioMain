@@ -17,6 +17,8 @@ namespace WingroveAudio
         private bool m_doVolumeCurve = true;
         [SerializeField]
         private bool m_doPitchCurve = true;
+        [SerializeField]
+        private bool m_optimiseForGlobal = false;
 
         private int m_cachedParameter = 0;
         private WingroveRoot.CachedParameterValue m_cachedParameterValue;
@@ -69,6 +71,10 @@ namespace WingroveAudio
                 }
                 else
                 {
+                    if(m_optimiseForGlobal)
+                    {
+                        Debug.LogError("[WINGROVEAUDIO] Parameter marked as optimise for global, but using non-global variable");
+                    }
                     float val = 0.0f;
                     m_cachedParameterValue.m_valueObject.TryGetValue(linkedObjectId, out val);
                     return m_volumeCurve.Evaluate(val);
@@ -78,6 +84,11 @@ namespace WingroveAudio
             {
                 return m_cachedZeroVol;
             }
+        }
+
+        public override bool IsGlobalOptimised()
+        {
+            return m_optimiseForGlobal;
         }
 
         public override float GetPitchMultiplier(int linkedObjectId)
@@ -108,6 +119,10 @@ namespace WingroveAudio
                 }
                 else
                 {
+                    if (m_optimiseForGlobal)
+                    {
+                        Debug.LogError("[WINGROVEAUDIO] Parameter marked as optimise for global, but using non-global variable");
+                    }
                     float val = 0.0f;
                     m_cachedParameterValue.m_valueObject.TryGetValue(linkedObjectId, out val);
                     return m_pitchCurve.Evaluate(val);

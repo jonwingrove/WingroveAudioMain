@@ -45,9 +45,10 @@ namespace WingroveAudio
             bool hasActiveCues = false;
             foreach (BaseWingroveAudioSource was in m_audioSources)
             {
-                if (was.HasActiveCues())
+                if (was.IsPlaying())
                 {
                     hasActiveCues = true;
+                    break;
                 }
             }
 
@@ -133,6 +134,11 @@ namespace WingroveAudio
         }
 
         public override void PerformAction(string eventName, List<ActiveCue> cuesIn, List<ActiveCue> cuesOut)
+        {
+
+        }
+
+        public override void PerformAction(string eventName, GameObject targetObject, AudioArea aa, List<ActiveCue> cuesOut)
         {
 
         }

@@ -9,7 +9,7 @@ namespace WingroveAudio
 
     public class EditorUtilities
     {
-
+        private static AudioNameGroup[] m_audioNameGroups;
 
         public static void DBLabel(string prefix, float amt)
         {
@@ -90,7 +90,70 @@ namespace WingroveAudio
 
             return asset;
         }
-       
+
+        [MenuItem("Wingrove Audio/Refresh Audio Name Groups")]
+        static void RefreshGroups()
+        {
+            List<AudioNameGroup> allGroups = new List<AudioNameGroup>();
+            string[] allAssets = AssetDatabase.FindAssets("t:AudioNameGroup");
+            foreach(string s in allAssets)
+            {
+                AudioNameGroup ang = AssetDatabase.LoadAssetAtPath<AudioNameGroup>(AssetDatabase.GUIDToAssetPath(s));
+                if(ang != null)
+                {
+                    allGroups.Add(ang);
+                }
+            }
+            m_audioNameGroups = allGroups.ToArray();
+        }
+
+        public static int FindEvent(string eventName)
+        {
+            int index = 0;
+            foreach (AudioNameGroup eg in m_audioNameGroups)
+            {
+                if (eg != null && eg.GetEvents() != null)
+                {
+                    foreach (string st in eg.GetEvents())
+                    {
+                        if (st == eventName)
+                        {
+                            return index;
+                        }
+                    }
+                }
+                ++index;
+            }
+            return -1;
+        }
+
+        public static int FindParameter(string parameterName)
+        {
+            int index = 0;
+            foreach (AudioNameGroup eg in m_audioNameGroups)
+            {
+                if (eg != null && eg.GetParameters() != null)
+                {
+                    foreach (string st in eg.GetParameters())
+                    {
+                        if (st == parameterName)
+                        {
+                            return index;
+                        }
+                    }
+                }
+                ++index;
+            }
+            return -1;
+        }
+        public static AudioNameGroup[] GetAudioNameGroups()
+        {
+            if(m_audioNameGroups == null)
+            {
+                RefreshGroups();
+            }
+            return m_audioNameGroups;
+        }
     }
 
 }

@@ -65,6 +65,7 @@ namespace WingroveAudio
         private Audio3DSetting m_default3DAudioSettings;        
 
         private int m_rmsFrame;
+        private int m_frameCtr;
         private static double m_lastDSPTime;
         private static double m_dspDeltaTime;
 
@@ -73,8 +74,10 @@ namespace WingroveAudio
             public AudioSource m_audioSource;
             public PooledAudioSource m_pooledAudioSource;
             public ActiveCue m_user;
+            public int m_useCount;
         }
-        List<AudioSourcePoolItem> m_audioSourcePool = new List<AudioSourcePoolItem>();
+        List<AudioSourcePoolItem> m_audioSourcePool = new List<AudioSourcePoolItem>(128);
+        HashSet<AudioSourcePoolItem> m_freeAudioSources = new HashSet<AudioSourcePoolItem>();
 
         Dictionary<string, List<BaseEventReceiveAction>> m_eventReceivers = new Dictionary<string, List<BaseEventReceiveAction>>();
 
@@ -156,7 +159,7 @@ namespace WingroveAudio
             m_pool.transform.parent = transform;
             for (int i = 0; i < m_audioSourcePoolSize; ++i)
             {
-                CreateAudioSource();
+                CreateAudioSource(false);
             }
 
             BaseEventReceiveAction[] evrs = GetComponentsInChildren<BaseEventReceiveAction>();
@@ -333,11 +336,11 @@ namespace WingroveAudio
                 {
                     if ( aspi.m_user != null )
                     {
-                        GUI.Label(new Rect(pos.x,pos.y,500,20), aspi.m_audioSource.clip.name + " @ " + aspi.m_user.GetState() + " " + (int)(100 * aspi.m_audioSource.time / aspi.m_audioSource.clip.length));
+                        GUI.Label(new Rect(pos.x,pos.y,500,20), aspi.m_audioSource.clip.name + " @ " + aspi.m_user.GetState() + " " + (int)(100 * aspi.m_audioSource.time / aspi.m_audioSource.clip.length) + " " + aspi.m_useCount);
                     }
                     else
                     {
-                        GUI.Label(new Rect(pos.x,pos.y,500,20), "Unused");
+                        GUI.Label(new Rect(pos.x,pos.y,500,20), "Unused : " + aspi.m_useCount);
                     }
 
                     pos.y+=20;
@@ -502,6 +505,26 @@ namespace WingroveAudio
             PostEventGO(eventName, targetObject, null);
         }
 
+        public void PostEventGOAA(string eventName, GameObject targetObject, AudioArea aa)
+        {
+            PostEventGOAA(eventName, targetObject, null, aa);
+        }
+
+        public void PostEventGOAA(string eventName, GameObject targetObject, List<ActiveCue> cuesOut, AudioArea aa)
+        {
+#if UNITY_EDITOR
+            LogEvent(eventName, targetObject);
+#endif
+            List<BaseEventReceiveAction> listOfReceivers = null;
+            if (m_eventReceivers.TryGetValue(eventName, out listOfReceivers))
+            {
+                foreach (BaseEventReceiveAction evr in listOfReceivers)
+                {
+                    evr.PerformAction(eventName, targetObject, aa, cuesOut);
+                }
+            }
+        }
+
         public void PostEventGO(string eventName, GameObject targetObject, List<ActiveCue> cuesOut)
         {
 #if UNITY_EDITOR
@@ -534,6 +557,26 @@ namespace WingroveAudio
 
         public AudioSourcePoolItem TryClaimPoolSource(ActiveCue cue)
         {
+            AudioSourcePoolItem bestQuick = null;
+            foreach(AudioSourcePoolItem aspi in m_freeAudioSources)
+            {
+                if(aspi.m_user == null || aspi.m_user.GetState() == ActiveCue.CueState.Stopped)
+                {
+                    bestQuick = aspi;
+                    break;
+                }
+            }
+            if(bestQuick != null)
+            {
+                if (bestQuick.m_user != null)
+                {
+                    bestQuick.m_user.Virtualise();
+                }
+                m_freeAudioSources.Remove(bestQuick);
+                bestQuick.m_user = cue;
+                return bestQuick;
+            }
+
             AudioSourcePoolItem bestSteal = null;
             int lowestImportance = cue.GetImportance();
             float quietestSimilarImportance = 1.0f;
@@ -541,19 +584,25 @@ namespace WingroveAudio
             {
                 if (aspi.m_user == null || aspi.m_user.GetState() == ActiveCue.CueState.Stopped)
                 {
-                    aspi.m_user = cue;
+                    if (aspi.m_user != null)
+                    {
+                        aspi.m_user.Virtualise();
+                    }
+                    aspi.m_user = cue;                    
+                    m_freeAudioSources.Remove(aspi);
                     return aspi;
                 }
                 else
                 {
-                    if (aspi.m_user.GetImportance() < cue.GetImportance())
+                    int aspiImportance = aspi.m_user.GetImportance();
+                    if (aspiImportance < cue.GetImportance())
                     {
-                        if (aspi.m_user.GetImportance() < lowestImportance)
+                        if (aspiImportance < lowestImportance)
                         {
                             lowestImportance = aspi.m_user.GetImportance();
                             bestSteal = aspi;
                         }
-                        else if (aspi.m_user.GetImportance() == lowestImportance)
+                        else if (aspiImportance == lowestImportance)
                         {
                             if (aspi.m_user.GetState() == ActiveCue.CueState.PlayingFadeOut )
                             {
@@ -561,7 +610,7 @@ namespace WingroveAudio
                             }
                         }
                     }
-                    else if (aspi.m_user.GetImportance() == lowestImportance)
+                    else if (aspiImportance == lowestImportance)
                     {
                         if (aspi.m_user.GetState() == ActiveCue.CueState.PlayingFadeOut ||
                             aspi.m_user.GetTheoreticalVolumeCached() < quietestSimilarImportance)
@@ -577,10 +626,12 @@ namespace WingroveAudio
                 bestSteal.m_user.Virtualise();
                 bestSteal.m_pooledAudioSource.ResetFiltersForFrame();
                 bestSteal.m_user = cue;
+                m_freeAudioSources.Remove(bestSteal);
                 return bestSteal;
             } else if (m_audioSourcePool.Count < m_audioSourcePoolSize)
             {
-                AudioSourcePoolItem aspi = CreateAudioSource();                
+                AudioSourcePoolItem aspi = CreateAudioSource(true);
+                aspi.m_user = cue;
                 return aspi;
             } else
             {
@@ -588,7 +639,7 @@ namespace WingroveAudio
             }
         }
 
-        private AudioSourcePoolItem CreateAudioSource()
+        private AudioSourcePoolItem CreateAudioSource(bool usingInstantly)
         {
             GameObject newAudioSource = new GameObject("PooledAudioSource_"+ m_audioSourcePool.Count);
             newAudioSource.transform.parent = m_pool.transform;
@@ -601,26 +652,44 @@ namespace WingroveAudio
             aspi.m_pooledAudioSource = newAudioSource.AddComponent<PooledAudioSource>();
             aSource.enabled = false;
             m_audioSourcePool.Add(aspi);
+            if (!usingInstantly)
+            {
+                m_freeAudioSources.Add(aspi);
+            }
 
             return aspi;
         }
 
-        public void UnlinkSource(AudioSourcePoolItem item)
+        public void UnlinkSource(AudioSourcePoolItem item, bool fromVirtualise)
         {
+#if UNITY_PS4
+            item.m_useCount++;
+            if (item.m_useCount > 35 && !fromVirtualise)
+            {
+                Destroy(item.m_audioSource.gameObject);
+                item.m_user = null;
+                m_audioSourcePool.Remove(item);
+                if (m_audioSourcePool.Count < m_audioSourcePoolSize)
+                {
+                    AudioSourcePoolItem alwaysCreate = CreateAudioSource(false);
+                }                
+                return;
+            }
+            else
+            {
+                item.m_audioSource.Stop();
+                item.m_audioSource.enabled = false;
+                item.m_audioSource.clip = null;
+                item.m_user = null;
+                m_freeAudioSources.Add(item);
+            }
+#else
             item.m_audioSource.Stop();
             item.m_audioSource.enabled = false;
             item.m_audioSource.clip = null;
             item.m_user = null;
-            GameObject sourceItem = item.m_audioSource.gameObject;
-            //Destroy(item.m_audioSource);
-            //AudioSource aSource = sourceItem.AddComponent<AudioSource>();
-            //aSource.playOnAwake = false;
-            //aSource.enabled = false;
-            //aSource.rolloffMode = m_defaultRolloffMode;
-            //aSource.maxDistance = m_defaultMaxDistance;
-            //aSource.minDistance = m_defaultMinDistance;
-
-            //item.m_audioSource = aSource;
+            m_freeAudioSources.Add(item);
+#endif
         }
 
         public string dbStringUtil(float amt)
@@ -662,8 +731,46 @@ namespace WingroveAudio
 
         void Update()
         {
+#if UNITY_EDITOR
+            if(Input.GetKeyDown(KeyCode.P))
+            {
+                List<BaseWingroveAudioSource> sortedList = new List<BaseWingroveAudioSource>();
+                sortedList.AddRange(m_allRegisteredSources);
+                sortedList.Sort((a, b) =>
+                {
+                    if (a.GetAudioClip().length / a.GetPitchMax() > b.GetAudioClip().length / b.GetPitchMax())
+                    {
+                        return 1;
+                    }
+                    else if(a.GetAudioClip().length / a.GetPitchMax() < b.GetAudioClip().length / b.GetPitchMax())
+                    {
+                        return -1;
+                    }
+                    else
+                    {
+                        return 0;
+                    }
+                });
+                string output = "";
+                foreach(BaseWingroveAudioSource bwas in sortedList)
+                {
+                    if(bwas.GetAudioClip().length < 1.0f)
+                    {
+                        output += bwas.GetAudioClip().name + " : " + bwas.GetAudioClip().length / bwas.GetPitchMax() + "\n";
+                    }
+                }
+                Debug.Log(output);
+            }
+#endif
+
             // do some clearing of old parameters...
             ClearParamSlowConstant(1);
+            m_frameCtr = (m_frameCtr + 1) % 512;
+
+            if (m_listenerCount > 0)
+            {
+                GetSingleListener().UpdatePosition();
+            }
 
             // update mix buses first
             foreach (WingroveMixBus wmb in m_allMixBuses)
@@ -674,7 +781,7 @@ namespace WingroveAudio
             // then audio sources
             foreach(BaseWingroveAudioSource bwas in m_allRegisteredSources)
             {
-                bwas.DoUpdate();
+                bwas.DoUpdate(m_frameCtr);
             }
 
             foreach(InstanceLimiter il in m_allInstanceLimiters)
@@ -750,6 +857,11 @@ namespace WingroveAudio
             m_thisListener.transform.localPosition = Vector3.zero;
             m_thisListener.transform.localRotation = Quaternion.identity;
             m_thisListener.transform.localScale = Vector3.one;
+            while(m_listeners.Contains(null))
+            {
+                m_listeners.Remove(null);
+                m_listenerCount = m_listeners.Count;
+            }
         }
 
         public void UnregisterListener(WingroveListener listener)

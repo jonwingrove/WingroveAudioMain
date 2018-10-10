@@ -19,6 +19,7 @@ namespace WingroveAudio
         private List<BaseAutomaticDuck> m_duckList = new List<BaseAutomaticDuck>();
         private List<BaseWingroveAudioSource> m_audioSources = new List<BaseWingroveAudioSource>();
         private List<WingroveMixBus> m_childMixBuses = new List<WingroveMixBus>();
+        private bool m_hasParent;
 
         public float Volume
         {
@@ -31,6 +32,7 @@ namespace WingroveAudio
             m_parent = FindParentMixBus(transform.parent);
             if (m_parent != null)
             {
+                m_hasParent = true;
                 m_parent.RegisterMixBus(this);
             }
             WingroveRoot.Instance.RegisterMixBus(this);
@@ -127,7 +129,7 @@ namespace WingroveAudio
 
         public void DoUpdate()
         {
-            if (m_parent == null)
+            if (!m_hasParent)
             {
                 m_mixedVol = m_volumeMult;
                 m_totalImportance = m_importance;

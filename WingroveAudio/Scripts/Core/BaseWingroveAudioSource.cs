@@ -40,7 +40,12 @@ namespace WingroveAudio
         private float m_randomVariationPitchMax = 1.0f;
         [SerializeField]
         private RetriggerOnSameObject m_retriggerOnSameObjectBehaviour = RetriggerOnSameObject.PlayAnother;
-         
+
+        [SerializeField]
+        private int m_parameterCurveUpdateFrequencyBase = 1;
+        [SerializeField]
+        private int m_parameterCurveUpdateFrequencyOffset = 0;
+
         protected List<ActiveCue> m_currentActiveCues = new List<ActiveCue>(32);        
         protected int m_currentActiveCuesCount;
         protected List<ActiveCue> m_toRemove = new List<ActiveCue>(32);
@@ -48,8 +53,15 @@ namespace WingroveAudio
         protected WingroveMixBus m_mixBus;
         protected bool m_hasMixBus;
         protected InstanceLimiter m_instanceLimiter;
-		protected List<ParameterModifierBase> m_parameterModifiers = new List<ParameterModifierBase>();
+		protected List<ParameterModifierBase> m_parameterModifiersLive = new List<ParameterModifierBase>();
+        protected List<ParameterModifierBase> m_parameterModifiersGlobalOpt = new List<ParameterModifierBase>();
         protected List<FilterApplicationBase> m_filterApplications = new List<FilterApplicationBase>();
+
+        private int m_frameCtr;
+        private bool m_hasCachedGlobalVolume;
+        private bool m_hasCachedGlobalPitch;
+        private float m_cachedGlobalVolume;
+        private float m_cachedGlobalPitch;
 
         public Audio3DSetting Get3DSettings()
         {
@@ -75,6 +87,19 @@ namespace WingroveAudio
             return m_currentActiveCues;
         }
 
+        public bool ShouldUpdateParameterCurves()
+        {
+            if(m_parameterCurveUpdateFrequencyBase <= 1)
+            {
+                return true;
+            }
+            else
+            {
+                int val = (m_frameCtr + m_parameterCurveUpdateFrequencyOffset) % m_parameterCurveUpdateFrequencyBase;
+                return (val == 0);
+            }
+        }
+
         void Awake()
         {
             m_mixBus = WingroveMixBus.FindParentMixBus(transform);
@@ -85,7 +110,10 @@ namespace WingroveAudio
                 m_mixBus.RegisterSource(this);
             }
 			FindParameterModifiers(transform);
+            // no filters on switch...
+#if !UNITY_SWITCH
             FindFilterApplications(transform);
+#endif
             WingroveRoot.Instance.RegisterAudioSource(this);
             Initialise();
         }
@@ -101,7 +129,14 @@ namespace WingroveAudio
                 ParameterModifierBase[] paramMods = t.gameObject.GetComponents<ParameterModifierBase>();
 				foreach(ParameterModifierBase mod in paramMods)
 				{
-					m_parameterModifiers.Add(mod);
+                    if (mod.IsGlobalOptimised())
+                    {
+                        m_parameterModifiersGlobalOpt.Add(mod);
+                    }
+                    else
+                    {
+                        m_parameterModifiersLive.Add(mod);
+                    }
 				}				
                 FindParameterModifiers(t.parent);
 			}
@@ -126,8 +161,20 @@ namespace WingroveAudio
 
 		public float GetPitchModifier(int goId)
 		{
-			float pMod = 1.0f;
-            List<ParameterModifierBase>.Enumerator pvEn = m_parameterModifiers.GetEnumerator();
+            if(!m_hasCachedGlobalPitch)
+            {
+                m_cachedGlobalPitch = 1.0f;
+                List<ParameterModifierBase>.Enumerator pvEnG = m_parameterModifiersGlobalOpt.GetEnumerator();
+                while (pvEnG.MoveNext())
+                {
+                    ParameterModifierBase pvMod = pvEnG.Current;
+                    m_cachedGlobalPitch *= pvMod.GetPitchMultiplier(goId);
+                }
+                m_hasCachedGlobalPitch = true;
+            }
+
+			float pMod = m_cachedGlobalPitch;
+            List<ParameterModifierBase>.Enumerator pvEn = m_parameterModifiersLive.GetEnumerator();
             while(pvEn.MoveNext())
             {
                 ParameterModifierBase pvMod = pvEn.Current;
@@ -138,9 +185,21 @@ namespace WingroveAudio
 		
 		public float GetVolumeModifier(int goId)
 		{
-			float vMod = m_clipMixVolume;
+            if (!m_hasCachedGlobalVolume)
+            {
+                m_cachedGlobalVolume = 1.0f;
+                List<ParameterModifierBase>.Enumerator pvEnG = m_parameterModifiersGlobalOpt.GetEnumerator();
+                while (pvEnG.MoveNext())
+                {
+                    ParameterModifierBase pvMod = pvEnG.Current;
+                    m_cachedGlobalVolume *= pvMod.GetVolumeMultiplier(goId);
+                }
+                m_hasCachedGlobalVolume = true;
+            }
 
-            List<ParameterModifierBase>.Enumerator pvEn = m_parameterModifiers.GetEnumerator();
+            float vMod = m_clipMixVolume * m_cachedGlobalVolume;
+
+            List<ParameterModifierBase>.Enumerator pvEn = m_parameterModifiersLive.GetEnumerator();
             while(pvEn.MoveNext())
             {
                 ParameterModifierBase pvMod = pvEn.Current;
@@ -188,8 +247,11 @@ namespace WingroveAudio
             return result;
         }
 
-        public void DoUpdate()
+        public void DoUpdate(int frameCtr)
         {
+            m_frameCtr = frameCtr;
+            m_hasCachedGlobalPitch = false;
+            m_hasCachedGlobalVolume = false;
             if (m_currentActiveCuesCount > 0)
             {
                 UpdateInternal();
@@ -243,12 +305,7 @@ namespace WingroveAudio
             {
                 return m_importance + m_mixBus.GetImportance();
             }
-        }
-
-        public bool HasActiveCues()
-        {
-            return (m_currentActiveCues.Count != 0);
-        }
+        }       
 
         public ActiveCue GetCueForGameObject(GameObject go)
         {
@@ -304,6 +361,11 @@ namespace WingroveAudio
                 m_randomVariationPitchMax);
         }
 
+        public float GetPitchMax()
+        {
+            return m_randomVariationPitchMax;
+        }
+
         public bool GetLooping()
         {
             return m_looping;
@@ -334,6 +396,76 @@ namespace WingroveAudio
         {
             m_toRemove.Add(cue);
             m_toRemoveDirty = true;
+        }
+
+        public ActiveCue Play(ActiveCue cue, float fade, GameObject target, AudioArea aa)
+        {
+            if (m_instanceLimiter == null || m_instanceLimiter.CanPlay(target))
+            {
+                if ((cue == null) || (m_retriggerOnSameObjectBehaviour == RetriggerOnSameObject.PlayAnother))
+                {
+
+                    bool rejected = false;
+                    if (m_is3DSound && m_instantRejectOnTooDistant)
+                    {
+                        if (gameObject != null)
+                        {
+                            Vector3 pos =
+                                WingroveRoot.Instance.GetRelativeListeningPosition(target.transform.position);
+                            float dist = (WingroveRoot.Instance.GetSingleListener().transform.position -
+                                pos).magnitude;
+                            float maxDist = Get3DSettings().GetMaxDistance();
+                            if (dist > maxDist)
+                            {
+                                rejected = true;
+                            }
+                            else if (m_instantRejectHalfDistanceFewVoices && dist > maxDist * 0.5f
+                                && WingroveRoot.Instance.IsCloseToMax())
+                            {
+                                rejected = true;
+                            }
+                        }
+                    }
+
+                    if (!rejected)
+                    {
+                        cue = GetNextCue();
+                        cue.Initialise(gameObject, this, target, aa);
+                        m_currentActiveCues.Add(cue);
+                        m_currentActiveCuesCount++;
+                        if (m_beatSynchronizeOnStart)
+                        {
+                            BeatSyncSource current = BeatSyncSource.GetCurrent();
+                            if (current != null)
+                            {
+                                cue.Play(fade, current.GetNextBeatTime());
+                            }
+                            else
+                            {
+                                cue.Play(fade);
+                            }
+                        }
+                        else
+                        {
+                            cue.Play(fade);
+                        }
+                        if (m_instanceLimiter != null)
+                        {
+                            m_instanceLimiter.AddCue(cue, target);
+                        }
+                    }
+                }
+                else
+                {
+                    if (m_retriggerOnSameObjectBehaviour != RetriggerOnSameObject.DontPlay)
+                    {
+                        cue.Play(fade);
+                    }
+                }
+
+
+            }
+            return cue;
         }
 
         public ActiveCue Play(ActiveCue cue, float fade, GameObject target)

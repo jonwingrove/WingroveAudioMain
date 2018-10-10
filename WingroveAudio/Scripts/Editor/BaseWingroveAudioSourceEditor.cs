@@ -35,6 +35,8 @@ namespace WingroveAudio
             GUILayout.EndHorizontal();
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty("m_retriggerOnSameObjectBehaviour"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("m_parameterCurveUpdateFrequencyBase"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("m_parameterCurveUpdateFrequencyOffset"));
 
             SerializedProperty spatialProp = serializedObject.FindProperty("m_is3DSound");
 

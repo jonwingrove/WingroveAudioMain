@@ -40,7 +40,7 @@ namespace WingroveAudio
 
         public bool IsActive()
         {
-            return m_audioSource.HasActiveCues();
+            return m_audioSource.IsPlaying();
         }
 
         public double GetNextBeatTime()

@@ -5,6 +5,17 @@ namespace WingroveAudio
     [AddComponentMenu("WingroveAudio/Wingrove Listeners")]
     public class WingroveListener : MonoBehaviour
     {
+        private Vector3 m_position;        
+
+        public void UpdatePosition()
+        {
+            m_position = transform.position;
+        }
+
+        public Vector3 GetPosition()
+        {
+            return m_position;
+        }
 
         // Use this for initialization
         void OnEnable()

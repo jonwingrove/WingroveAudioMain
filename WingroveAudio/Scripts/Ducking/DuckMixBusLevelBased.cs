@@ -79,6 +79,11 @@ namespace WingroveAudio
         {
             
         }
+
+        public override void PerformAction(string eventName, GameObject targetObject, AudioArea aa, List<ActiveCue> cuesOut)
+        {
+            
+        }
     }
 
 }

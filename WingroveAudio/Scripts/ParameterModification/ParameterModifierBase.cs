@@ -12,4 +12,8 @@ public abstract class ParameterModifierBase : MonoBehaviour
     {
         return 1.0f;
     }
+    public virtual bool IsGlobalOptimised()
+    {
+        return false;
+    }
 }

@@ -11,5 +11,7 @@ namespace WingroveAudio
         public abstract void PerformAction(string eventName, GameObject targetObject, List<ActiveCue> cuesOut);
         public abstract void PerformAction(string eventName, List<ActiveCue> cuesIn, List<ActiveCue> cuesOut);
 
+        public abstract void PerformAction(string eventName, GameObject targetObject, AudioArea aa, List<ActiveCue> cuesOut);
+
     }
 }
