@@ -1,6 +1,10 @@
 # WingroveAudio
 Event driven audio handler for Unity3d.
-No documentation yet, sry.
+
+# Updates
+
+* Optimisations/caching
+* Fix for occasionally re-using a non-optimal ActiveCue
 
 # Explanation
 Set up an hierarchy prefab to receive events, triggering audio appropriately as they happen.
